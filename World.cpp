@@ -3,41 +3,13 @@
 
 extern Arduboy2 arduboy;
 
-void World::init(uint32_t newSeed, int16_t x, int16_t y) {
+void World::init(uint32_t newSeed, int32_t x, int32_t y) {
   seed = newSeed;
   lfsr.lfsr = seed;
-  lfsrX = x;
-  lfsrY = y;
+  lfsrX = x >> 11;
+  lfsrY = y >> 11;
   Serial.print("SEED = ");
   Serial.println(seed,HEX);
-
-//  lfsr.forward(1);
-//  Serial.print("LFSR+1 = ");
-//  Serial.println(lfsr.lfsr,HEX);
-//  
-//  lfsr.forward1024();
-//  Serial.print("LFSR+1024 = ");
-//  Serial.println(lfsr.lfsr,HEX);
-//  
-//  lfsr.backward(1);
-//  Serial.print("LFSR-1 = ");
-//  Serial.println(lfsr.lfsr,HEX);
-//  
-//  lfsr.backward1024();
-//  Serial.print("LFSR-1024 = ");
-//  Serial.println(lfsr.lfsr,HEX);
-  
-//  for (int8_t y=0; y < mapHeight; y++) {
-//    Serial.print(y);
-//    Serial.print(":");
-//    for (int8_t x=0; x < mapWidth; x++) {
-//      uint8_t tile = 4 + (lfsr.lfsr & 0xf);
-//      tiles[y*mapWidth+x] = tile;
-//      Serial.print(tile&0x3);
-//      lfsr.forward(4);
-//    }
-//    Serial.println();
-//  }
 }
 
 int8_t World::getTile(int16_t x, int16_t y) {
@@ -139,11 +111,6 @@ void World::drawMini(int32_t playerX, int32_t playerY) {
     lfsrX = savedLfsrX;
     lfsrY = savedLfsrY;
   }
-
-  arduboy.setCursor(0,HEIGHT-8*4);
-  arduboy.println(lfsr.lfsr,HEX);
-  arduboy.println(lfsrX);
-  arduboy.println(lfsrY);
 }
 
 /*

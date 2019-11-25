@@ -12,10 +12,10 @@ World world;
 enum Direction : uint8_t {north, northeast, east, southeast, south, southwest, west, northwest};
 static const uint8_t targetMidH  = (world.mainRight+world.mainLeft-16)/2;
 static const uint8_t targetMidV  = (world.mainTop+world.mainBottom-16)/2;
-static const uint8_t targetRight = targetMidH + 16;
-static const uint8_t targetLeft = targetMidH - 16;
-static const uint8_t targetDown = targetMidV + 16;
-static const uint8_t targetUp = targetMidV - 16;
+static const uint8_t targetRight = targetMidH + 28;
+static const uint8_t targetLeft = targetMidH - 28;
+static const uint8_t targetDown = targetMidV + 20;
+static const uint8_t targetUp = targetMidV - 20;
 
 
 static const uint16_t colorBG = 0x5a5a;
@@ -23,8 +23,8 @@ static const uint8_t  colorFG = WHITE;
 
 Direction playerDirection = north;
 uint8_t frame = 0;
-int32_t playerX = 5<<10;
-int32_t playerY = 5<<10;
+int32_t playerX = ((int32_t)world.mapWidth/2l)<<11;
+int32_t playerY = ((int32_t)world.mapHeight/2l)<<11;
 int8_t  playerSpeed = 2;
 static const int8_t maxSpeed = 14;
 uint8_t offsetX = targetMidH;
@@ -38,14 +38,14 @@ void setup() {
   Serial.begin(9600);
 
   arduboy.clear();
-  arduboy.print("Generating world...");
+  arduboy.println("Generating world...");
   arduboy.display();
   
   delay(500); // Let serial connect
-  world.init(1 /*random(world.minSeed,world.maxSeed)*/,0,0);
+  world.init(random(world.minSeed,world.maxSeed),0,0);
 }
 
-void loop() {
+void loop2() {
   if (!(arduboy.nextFrame())) return;
   arduboy.pollButtons();
 
@@ -60,12 +60,6 @@ void loop() {
       (world.miniBottom+world.miniTop-8)/2,
       tilesBullseye,0);
   } 
-//  else {
-//    sprites.drawErase(
-//      (world.miniRight+world.miniLeft-8)/2,
-//      (world.miniBottom+world.miniTop-8)/2,
-//      tilesRoad,tilesBullseye);
-//  }
 
   arduboy.setCursor(0,0);
   arduboy.println(world.seed,HEX);
@@ -86,7 +80,7 @@ void loop() {
   }
 }
 
-void loop2() {
+void loop() {
   if (!(arduboy.nextFrame())) return;
   arduboy.pollButtons();
 
@@ -215,13 +209,11 @@ void loop2() {
       (world.miniBottom+world.miniTop-8)/2,
       tilesBullseye,0);
   }
-      
-//  arduboy.setCursor(world.miniLeft+8,HEIGHT-8);
-//  arduboy.print(playerX>>2);
 
-//  arduboy.setCursor(WIDTH-16,0);
-//  arduboy.print(arduboy.cpuLoad());
 
+  arduboy.setCursor(0,HEIGHT-8);
+  arduboy.println(arduboy.cpuLoad());
+  
   soundMotor();
   arduboy.display();
 }
