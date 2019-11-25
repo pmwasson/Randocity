@@ -29,10 +29,10 @@ def main():
     poly = 0x80004
     degree = 20    
     #count = 1
-    #count = (0x100000-2)
+    count = (0x100000-2)
     #count = 1024
     #count = (0x100000-1)-1024
-    count=4
+
     lfsr = [[i] for i in range(degree)]
     for i in range(count):
         lfsr_forward(lfsr,degree,poly)

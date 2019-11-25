@@ -1,25 +1,26 @@
 #include "lfsr.h"
 
 void LFSR::forward() {
-  int8_t lsb = lfsr & lsbBit;
+  bool lsb = (lfsr & lsbBit) != 0;
   lfsr = ((lfsr>>1) ^ ((-lsb) & forwardPoly));   
 }
 
 void LFSR::backward() {
-  int8_t msb = lfsr & msbBit;
+  bool msb = (lfsr & msbBit) != 0;
   lfsr = mask & ((lfsr<<1) ^ ((-msb) & backwardPoly));   
 }
 
-void LFSR::forward4() {
-  for(uint8_t i=0; i<4; i++) forward();
+void LFSR::forward(uint16_t n) {
+  for(uint16_t i=0; i<n; i++) forward();
 }
 
-void LFSR::backward4() {
-  for(uint8_t i=0; i<4; i++) backward();
+void LFSR::backward(uint16_t n) {
+  for(uint16_t i=0; i<n; i++) backward();
 }
 
 void LFSR::forward1024() {
   uint32_t prev = lfsr;
+  lfsr=0;
   if (prev & 0x00001) lfsr ^= 0x94cf1;
   if (prev & 0x00002) lfsr ^= 0x299eb;
   if (prev & 0x00004) lfsr ^= 0x533d6;
@@ -45,6 +46,7 @@ void LFSR::forward1024() {
 // forward 0x100000-1-1024 = backward 1024
 void LFSR::backward1024() {
   uint32_t prev = lfsr;
+  lfsr=0;
   if (prev & 0x00001) lfsr ^= 0x46103;
   if (prev & 0x00002) lfsr ^= 0x8c206;
   if (prev & 0x00004) lfsr ^= 0x18405;

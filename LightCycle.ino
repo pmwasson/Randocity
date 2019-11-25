@@ -18,13 +18,13 @@ static const uint8_t targetDown = targetMidV + 16;
 static const uint8_t targetUp = targetMidV - 16;
 
 
-static const uint16_t colorBG = 0x50a0;
+static const uint16_t colorBG = 0x5a5a;
 static const uint8_t  colorFG = WHITE;
 
 Direction playerDirection = north;
 uint8_t frame = 0;
-int32_t playerX = 1024;
-int32_t playerY = 1024;
+int32_t playerX = 5<<10;
+int32_t playerY = 5<<10;
 int8_t  playerSpeed = 2;
 static const int8_t maxSpeed = 14;
 uint8_t offsetX = targetMidH;
@@ -42,7 +42,7 @@ void setup() {
   arduboy.display();
   
   delay(500); // Let serial connect
-  world.init(random(world.minSeed,world.maxSeed));
+  world.init(1 /*random(world.minSeed,world.maxSeed)*/,0,0);
 }
 
 void loop() {
@@ -67,6 +67,13 @@ void loop() {
 //      tilesRoad,tilesBullseye);
 //  }
 
+  arduboy.setCursor(0,0);
+  arduboy.println(world.seed,HEX);
+  arduboy.println(playerX >> 11);
+  arduboy.println(playerY >> 11);
+  arduboy.setCursor(0,HEIGHT-8);
+  arduboy.println(arduboy.cpuLoad());
+
   arduboy.display();
 
   if (arduboy.pressed(LEFT_BUTTON))  playerX-=256;
@@ -75,7 +82,7 @@ void loop() {
   if (arduboy.pressed(DOWN_BUTTON))  playerY+=256;
   
   if (arduboy.justPressed(B_BUTTON)) {
-      world.init(random(world.minSeed,world.maxSeed));
+      world.init(random(world.minSeed,world.maxSeed),0,0);
   }
 }
 
