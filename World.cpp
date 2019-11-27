@@ -3,16 +3,16 @@
 
 extern Arduboy2 arduboy;
 
-void World::init(uint32_t newSeed, int32_t x, int32_t y) {
+void World::init(uint32_t newSeed) {
   seed = newSeed;
   lfsr.lfsr = seed;
-  lfsrX = x >> 11;
-  lfsrY = y >> 11;
+  lfsrX=0;
+  lfsrY=0;
   Serial.print("SEED = ");
   Serial.println(seed,HEX);
 }
 
-int8_t World::getTile(int16_t x, int16_t y) {
+int8_t World::getBlock(int16_t x, int16_t y) {
 
   if (
     (y < 0) || (y >= mapHeight) ||
@@ -38,45 +38,43 @@ int8_t World::getTile(int16_t x, int16_t y) {
     lfsrY--;
   }
   
-  return lfsr.lfsr & 0x3;
+  return lfsr.lfsr & 0xf;
 }
 
-int8_t World::peekTile(int16_t x, int16_t y) {
+int8_t World::peekBlock(int16_t x, int16_t y) {
   uint32_t savedLfsr = lfsr.lfsr;
   int16_t savedLfsrX = lfsrX;
   int16_t savedLfsrY = lfsrY;
 
-  int8_t tile = getTile(x,y);
+  int8_t block = getBlock(x,y);
 
   lfsr.lfsr = savedLfsr;
   lfsrX = savedLfsrX;
   lfsrY = savedLfsrY;
   
-  return tile;
+  return block;
 }
 
-int8_t World::tileType(int8_t tile) {
-  if (tile<0) return tile;
-  return tile>>2;
+int8_t World::blockType(int8_t block) {
+  if (block<0) return block;
+  return block>>2;
 }
 
-int8_t World::calcTile(int16_t playerX, int16_t playerY) {
-  int16_t x = playerX >> 3;
-  int16_t y = playerY >> 3;
-  int8_t tile = getTile(x,y);
-  if (tile < 0) return tile;
-  int8_t fullTile = tilesMiniMapFull + (tile&0x3);
-  switch(tileType(tile)) {
-    case tilesMiniMapNoNorth: return (tileType(peekTile(x,y-1)) == tilesMiniMapNoSouth) ? tile : fullTile;
-    case tilesMiniMapNoEast:  return (tileType(peekTile(x+1,y)) == tilesMiniMapNoWest)  ? tile : fullTile;
-    case tilesMiniMapNoSouth: return (tileType(peekTile(x,y+1)) == tilesMiniMapNoNorth) ? tile : fullTile;
-    case tilesMiniMapNoWest:  return (tileType(peekTile(x-1,y)) == tilesMiniMapNoEast)  ? tile : fullTile;
-    default: return tile;
+int8_t World::calcBlock(int16_t x, int16_t y) {
+  int8_t block = getBlock(x,y);
+  if (block < 0) return block;
+  int8_t fullBlock = tilesMiniMapFull + (block&0x3);
+  switch(blockType(block)) {
+    case blockNoNorth: return (blockType(peekBlock(x,y-1)) == blockNoSouth) ? block : fullBlock;
+    case blockNoEast:  return (blockType(peekBlock(x+1,y)) == blockNoWest)  ? block : fullBlock;
+    case blockNoSouth: return (blockType(peekBlock(x,y+1)) == blockNoNorth) ? block : fullBlock;
+    case blockNoWest:  return (blockType(peekBlock(x-1,y)) == blockNoEast)  ? block : fullBlock;
+    default: return block;
   }
 }
 /* 
  * The player is always centered on the map, so the x,y are the player world coordinates.
- * Coordinates uses lower 3 bits for offset and the rest for which tile. 
+ * Coordinates uses lower 3 bits for offset and the rest for which block. 
  */
 void World::drawMini(int32_t playerX, int32_t playerY) {
   uint8_t offsetX = playerX & 0x7;
@@ -85,12 +83,10 @@ void World::drawMini(int32_t playerX, int32_t playerY) {
   int16_t tileY = playerY - (miniBottom-miniTop)/2;
 
   uint8_t ty = offsetY;
-
-  
   for (uint8_t y=miniTop; y < miniBottom; y += (y == miniTop) ? 8-offsetY : 8) {
     
     // set LFSR save point
-    calcTile(tileX,tileY+y-miniTop);
+    calcBlock(tileX>>3,(tileY+y-miniTop)>>3);
 
     // Save LFSR for next row
     uint32_t savedLfsr = lfsr.lfsr;
@@ -99,9 +95,9 @@ void World::drawMini(int32_t playerX, int32_t playerY) {
 
     uint8_t tx = offsetX;
     for (uint8_t x=miniLeft; x < miniRight; x += (x == miniLeft) ? 8-offsetX : 8) {
-      int8_t tile = calcTile(tileX+x-tx-miniLeft,tileY+y-ty-miniTop);
-      tile = (tile < 0) ? tilesMiniMapVoid : tile;
-      drawTile(tilesMiniMap,tile,x,y,tx,ty,miniRight,miniBottom);
+      int8_t block = calcBlock((tileX+x-tx-miniLeft)>>3,(tileY+y-ty-miniTop)>>3);
+      block = (block < 0) ? tilesMiniMapVoid : block;
+      drawTile(tilesMiniMap,block,x,y,tx,ty,miniRight,miniBottom);
       tx=0;
     }
     ty=0;
@@ -111,6 +107,95 @@ void World::drawMini(int32_t playerX, int32_t playerY) {
     lfsrX = savedLfsrX;
     lfsrY = savedLfsrY;
   }
+}
+
+void World::draw(int32_t playerX, int32_t playerY) {
+  uint8_t offsetX = playerX & 0x7;
+  uint8_t offsetY = playerY & 0x7;
+  int32_t tileX = playerX - (mainRight-mainLeft)/2;
+  int32_t tileY = playerY - (mainBottom-mainTop)/2;
+  int16_t blockX = tileX >> 9;
+  int16_t blockY = tileY >> 9;
+  
+  // Get tile (upper-left)
+  int8_t block = calcBlock(blockX,blockY);
+
+  // Since corners have no roads, only need 1 other block for transition
+  // If within 8, choose that direction
+  int8_t otherBlockX = calcBlock(blockX+1,blockY);
+  int8_t otherBlockY = calcBlock(blockX,blockY+1);
+
+  uint8_t segments = pgm_read_byte(blockSegments + block);
+  uint8_t otherSegmentsH = pgm_read_byte(blockSegments + otherBlockX);
+  uint8_t otherSegmentsV = pgm_read_byte(blockSegments + otherBlockY);
+  uint8_t firstY = 0x3f&((tileY-offsetY)>>3);
+  uint8_t firstX = 0x3f&((tileX-offsetX)>>3);
+  
+  uint8_t ty = offsetY;  
+  for (uint8_t y=mainTop; y < mainBottom; y += (y == mainTop) ? 8 - offsetY : 8) {
+    uint8_t tx = offsetX;
+    uint8_t lookupY = 0x3f&((tileY+y-ty-mainTop)>>3);
+    uint8_t segmentsY = (lookupY < firstY) ? otherSegmentsV : segments;
+    
+    for (uint8_t x=mainLeft; x < mainRight; x += (x == mainLeft) ? 8 - offsetX : 8) {
+      uint8_t lookupX = 0x3f&((tileX+x-tx-mainLeft)>>3);
+      uint8_t segmentsX = (lookupX < firstX) ? otherSegmentsH : segmentsY;
+      int8_t tile = tileInBlock(segmentsX,lookupX,lookupY);
+      drawTile(tilesRoad,tile,x,y,tx,ty,mainRight,mainBottom);
+      tx=0;
+    }
+    ty=0;
+  }
+
+//  arduboy.setCursor(0,0);
+//  arduboy.print(blockX);
+//  arduboy.print(",");
+//  arduboy.print(blockY);
+//  arduboy.print(":");
+//  arduboy.println(segments,HEX);
+//  arduboy.print(((tileX-mainLeft)>>3));
+//  arduboy.print(",");
+//  arduboy.print((tileY>>3)&0x3f);
+}
+
+int8_t World::tileInBlock(uint8_t segments, int16_t tileX, int16_t tileY) {
+  if ( (((segments & blockSegmentNorth) != 0) && (tileY < 32) ||
+       (((segments & blockSegmentSouth) != 0) && (tileY > 31) )) &&
+       (tileX > 28) && (tileX < 35)) {
+      return (((tileX==31) && (tileY%2)) || (tileX==34)) ? tilesRoadStripeEast :
+             (((tileX==32) && (tileY%2)) || (tileX==29)) ? tilesRoadStripeWest :
+             tilesRoadBlackTop;
+  }
+
+  if ( (((segments & blockSegmentWest) != 0) && (tileX < 32) ||
+       (((segments & blockSegmentEast) != 0) && (tileX > 31) )) &&
+       (tileY > 28) && (tileY < 35)) {
+      return (((tileY==31) && (tileX%2)) || (tileY==34)) ? tilesRoadStripeSouth :
+             (((tileY==32) && (tileX%2)) || (tileY==29)) ? tilesRoadStripeNorth :
+             tilesRoadBlackTop;
+  }
+
+  int16_t tileXmY = tileX - tileY;
+
+  if ( (((segments & blockSegmentNorthEast) != 0) && ( tileXmY > 27) && ( tileXmY < 37)) ||  
+       (((segments & blockSegmentSouthWest) != 0) && (-tileXmY > 27) && (-tileXmY < 37))) {
+      return ((abs(tileXmY)==32) && (tileY%2)) ? tilesRoadStripeNW2SE 
+            :((tileXmY==28) || (tileXmY==-36)) ? tilesRoadEdgeSW
+            :((tileXmY==36) || (tileXmY==-28)) ? tilesRoadEdgeNE
+            :                                    tilesRoadBlackTop;
+  }
+
+  int16_t tileXpY = 64 - (tileX + tileY);
+
+  if ( (((segments & blockSegmentNorthWest) != 0) && ( tileXpY > 27) && ( tileXpY < 37)) ||  
+       (((segments & blockSegmentSouthEast) != 0) && (-tileXpY > 27) && (-tileXpY < 37))) {
+      return ((abs(tileXpY)==32) && (tileY%2)) ? tilesRoadStripeNE2SW 
+            :((tileXpY==28) || (tileXpY==-36)) ? tilesRoadEdgeSE
+            :((tileXpY==36) || (tileXpY==-28)) ? tilesRoadEdgeNW
+            :                                    tilesRoadBlackTop;
+  }
+  
+  return tilesRoadGravel;
 }
 
 /*

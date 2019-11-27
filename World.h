@@ -23,8 +23,8 @@ class World {
 
     uint32_t seed;
         
-    void init(uint32_t seed, int32_t x, int32_t y);    
-    void draw(int16_t x, int16_t y);
+    void init(uint32_t seed);    
+    void draw(int32_t x, int32_t y);
     void drawMini(int32_t x, int32_t y);
     
   private:
@@ -32,10 +32,11 @@ class World {
     int16_t  lfsrX;
     int16_t  lfsrY;
 
-    int8_t getTile(int16_t x, int16_t y);
-    int8_t peekTile(int16_t x, int16_t y);
-    int8_t tileType(int8_t tile);
-    int8_t calcTile(int16_t playerX, int16_t playerY);
+    int8_t getBlock(int16_t x, int16_t y);
+    int8_t peekBlock(int16_t x, int16_t y);
+    int8_t blockType(int8_t tile);
+    int8_t calcBlock(int16_t playerX, int16_t playerY);
+    int8_t tileInBlock(uint8_t segments, int16_t tileX, int16_t tileY);
     void drawTile(const unsigned char *sprites, uint8_t tile, uint8_t sx, uint8_t sy, uint8_t tx, uint8_t ty, uint8_t mx, uint8_t my);
 };
     

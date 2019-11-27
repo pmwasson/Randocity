@@ -9,6 +9,14 @@ Sprites  sprites;
 ArduboyTones sound(arduboy.audio.enabled);
 World world;
 
+// Player coordinates (19 bits each)
+// Bits Range   Unit      Usage
+// ---- ------- --------- ---------------------------
+// 8    [18:11] Blocks    Within 256x256 map (blocks)
+// 6    [10:5]  Tiles     Within 64x64 block (tiles)
+// 3    [4:2]   Pixels    Within 8x8 tile (pixel)
+// 2    [1:0]   Sub-pixel Within pixel
+
 enum Direction : uint8_t {north, northeast, east, southeast, south, southwest, west, northwest};
 static const uint8_t targetMidH  = (world.mainRight+world.mainLeft-16)/2;
 static const uint8_t targetMidV  = (world.mainTop+world.mainBottom-16)/2;
@@ -25,7 +33,7 @@ Direction playerDirection = north;
 uint8_t frame = 0;
 int32_t playerX = ((int32_t)world.mapWidth/2l)<<11;
 int32_t playerY = ((int32_t)world.mapHeight/2l)<<11;
-int8_t  playerSpeed = 2;
+int8_t  playerSpeed = 0;
 static const int8_t maxSpeed = 14;
 uint8_t offsetX = targetMidH;
 uint8_t offsetY = targetMidV;
@@ -37,15 +45,22 @@ void setup() {
   arduboy.setFrameRate(30);
   Serial.begin(9600);
 
-  arduboy.clear();
-  arduboy.println("Generating world...");
-  arduboy.display();
-  
-  delay(500); // Let serial connect
-  world.init(random(world.minSeed,world.maxSeed),0,0);
+  generateWorld();
 }
 
-void loop2() {
+void generateWorld() {
+  uint32_t seed = random(world.minSeed,world.maxSeed);
+  arduboy.clear();
+  arduboy.println("Generating world...");
+  arduboy.print("Seed: ");
+  arduboy.println(seed,HEX);
+  arduboy.display();
+  
+  delay(500);
+  world.init(seed);
+}
+
+void loop_disabled() {
   if (!(arduboy.nextFrame())) return;
   arduboy.pollButtons();
 
@@ -61,12 +76,12 @@ void loop2() {
       tilesBullseye,0);
   } 
 
-  arduboy.setCursor(0,0);
-  arduboy.println(world.seed,HEX);
-  arduboy.println(playerX >> 11);
-  arduboy.println(playerY >> 11);
-  arduboy.setCursor(0,HEIGHT-8);
-  arduboy.println(arduboy.cpuLoad());
+//  arduboy.setCursor(0,0);
+//  arduboy.println(world.seed,HEX);
+//  arduboy.println(playerX >> 11);
+//  arduboy.println(playerY >> 11);
+//  arduboy.setCursor(0,HEIGHT-8);
+//  arduboy.println(arduboy.cpuLoad());
 
   arduboy.display();
 
@@ -76,7 +91,7 @@ void loop2() {
   if (arduboy.pressed(DOWN_BUTTON))  playerY+=256;
   
   if (arduboy.justPressed(B_BUTTON)) {
-      world.init(random(world.minSeed,world.maxSeed),0,0);
+      generateWorld();
   }
 }
 
@@ -84,10 +99,6 @@ void loop() {
   if (!(arduboy.nextFrame())) return;
   arduboy.pollButtons();
 
-//  backGround(colorBG);
-//  drawGridPoints(colorFG);
-  drawRoad();
-  
   // Count to 3
   if ((playerSpeed > 0) && (arduboy.everyXFrames(1+maxSpeed-playerSpeed))) {
     frame = (frame == 2) ? 0 : frame+1;
@@ -113,8 +124,10 @@ void loop() {
     playerSpeed = max(playerSpeed-2,0);  
     if (playerSpeed > 0)
       soundBreak();
+    if (arduboy.pressed(DOWN_BUTTON)) {
+      generateWorld();
+    }
   }
-
 
   uint8_t playerFrame = 0;
   switch(playerDirection) {
@@ -192,6 +205,7 @@ void loop() {
     offsetY--;
   }
 
+  world.draw((playerX>>2)-offsetX,(playerY>>2)-offsetY);
   sprites.drawPlusMask(offsetX,offsetY,tilesCycle,playerFrame);
   
 //  sprites.drawOverwrite(world.miniLeft,HEIGHT-8,tilesRoad,tilesRoadSpeed+playerSpeed/2);

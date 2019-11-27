@@ -26,12 +26,33 @@ const unsigned char PROGMEM tilesCycle[] = {
 
 // Road tiles
 
-static const uint8_t tilesRoadSpeed = 17;
+static const uint8_t tilesRoadGravel      = 0;
+static const uint8_t tilesRoadBlackTop    = 1;
+static const uint8_t tilesRoadStripeNorth = 2;
+static const uint8_t tilesRoadStripeEast  = 3;
+static const uint8_t tilesRoadStripeSouth = 4;
+static const uint8_t tilesRoadStripeWest  = 5;
+static const uint8_t tilesRoadStripeNW2SE = 6;
+static const uint8_t tilesRoadStripeNE2SW = 7;
+static const uint8_t tilesRoadEdgeNE      = 8;
+static const uint8_t tilesRoadEdgeSE      = 9;
+static const uint8_t tilesRoadEdgeSW      = 10;
+static const uint8_t tilesRoadEdgeNW      = 11;
+static const uint8_t tilesRoadSpeed       = 17;
 
 const unsigned char PROGMEM tilesRoad[] = {
 8,8,
 0x55,0xAA,0x55,0xAA,0x55,0xAA,0x55,0xAA, // 0  Off road
 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //    Black top
+0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01, //    Stripe - North
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xFF, //    Stripe - East
+0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80, //    Stripe - South
+0xFF,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //    Stripe - West
+0x00,0x06,0x0E,0x1C,0x38,0x70,0x60,0x00, //    Stripe - NW2SE 
+0x00,0x60,0x70,0x38,0x1C,0x0E,0x06,0x00, //    Stripe - NE2SW
+0x01,0x02,0x05,0x0A,0x15,0x2A,0x55,0xAA, //    Edge - NE 
+0x80,0xC0,0x60,0xB0,0x58,0xAC,0x56,0xAB, //    Edge - SE
+0x55,0xAA,0x54,0xA8,0x50,0xA0,0x40,0x80, //    Edge - SW 
 0xD5,0x6A,0x35,0x1A,0x0D,0x06,0x03,0x01, //    Edge - NW
 0x55,0xAA,0x55,0xAA,0x55,0xAA,0x55,0xAA, //    Off road
 0x57,0xAE,0x5C,0xB8,0x70,0xE0,0xC0,0x80, // 4  Edge - SW
@@ -44,7 +65,6 @@ const unsigned char PROGMEM tilesRoad[] = {
 0x00,0x00,0x00,0xFF,0xFF,0xAA,0x55,0xAA, //    Edge - E
 0x1D,0x1A,0x1D,0x1A,0x1D,0x1A,0x1D,0x1A, // 12 Edge - N
 0x58,0xB8,0x58,0xB8,0x58,0xB8,0x58,0xB8, //    Edge - S
-0x00,0x00,0x00,0x00,0x00,0xFF,0xFF,0x00, //    Stripe - East
 0x00,0xFF,0xFF,0x00,0x00,0x00,0x00,0x00, //    Stripe - West
 0x06,0x06,0x06,0x06,0x06,0x06,0x06,0x06, // 16 Stripe - North
 0x7E,0x91,0xA1,0xC1,0xC1,0x81,0x81,0x7E,  // Speeddometer 1
@@ -61,10 +81,10 @@ const unsigned char PROGMEM tilesRoad[] = {
 static const uint8_t tilesMiniMapFull = 16;
 static const uint8_t tilesMiniMapVoid = 20;
 
-static const uint8_t tilesMiniMapNoNorth = 0;
-static const uint8_t tilesMiniMapNoEast = 1;
-static const uint8_t tilesMiniMapNoSouth = 2;
-static const uint8_t tilesMiniMapNoWest = 3;
+static const uint8_t blockNoNorth = 0;
+static const uint8_t blockNoEast  = 1;
+static const uint8_t blockNoSouth = 2;
+static const uint8_t blockNoWest  = 3;
 
 const unsigned char PROGMEM tilesMiniMap[] = {
 8,8,
@@ -88,13 +108,58 @@ const unsigned char PROGMEM tilesMiniMap[] = {
 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x18, 0x18, 0x18, 
 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x07, 0x0E, 0x1C, 
 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xE0, 0x70, 0x38, 
-// fully connected
+// fully connected (diamond, cross, backward-slash, forward-slash)
 0x3C, 0x7E, 0xE7, 0xC3, 0xC3, 0xE7, 0x7E, 0x3C, 
 0x18, 0x18, 0x18, 0xFF, 0xFF, 0x18, 0x18, 0x18, 
 0x38, 0x70, 0xE0, 0xC1, 0x83, 0x07, 0x0E, 0x1C, 
 0x1C, 0x0E, 0x07, 0x83, 0xC1, 0xE0, 0x70, 0x38, 
 // Void
 0x55, 0x00, 0xAA, 0x00, 0x55, 0x00, 0xAA, 0x00,
+};
+
+// Segments:
+// 
+//           7/|\4   
+//           / 0 \   
+//          *-3+1-*   
+//           \ 2 /    
+//           6\|/5   
+//
+
+static const uint8_t blockSegmentNorth      = 0b00000001;  
+static const uint8_t blockSegmentEast       = 0b00000010;
+static const uint8_t blockSegmentSouth      = 0b00000100;
+static const uint8_t blockSegmentWest       = 0b00001000;
+static const uint8_t blockSegmentNorthEast  = 0b00010000;
+static const uint8_t blockSegmentSouthEast  = 0b00100000;
+static const uint8_t blockSegmentSouthWest  = 0b01000000;  
+static const uint8_t blockSegmentNorthWest  = 0b10000000;
+
+const unsigned char PROGMEM blockSegments[] = {
+  0b01100000, // diamond (no north)
+  0b00001110, // cross (no north)
+  0b01001010, // backward-slash (no north)
+  0b00101010, // forward-slash (no north)
+
+  0b11000000, // diamond (no east)
+  0b00001101, // cross (no east)
+  0b01000101, // backward-slash (no east)
+  0b10000101, // forward-slash (no east)
+
+  0b10010000, // diamond (no south)
+  0b00001011, // cross (no south)
+  0b00011010, // backward-slash (no south)
+  0b10001010, // forward-slash (no south)
+
+  0b00110000, // diamond (no west)
+  0b00000111, // cross (no west)
+  0b00010101, // backward-slash (no west)
+  0b00100101, // forward-slash (no west)
+  
+  0b11110000, // diamond
+  0b00001111, // cross
+  0b01010000, // backward-slash
+  0b10100000, // forward-slash
 };
 
 const unsigned char PROGMEM tilesBullseye[] = {
