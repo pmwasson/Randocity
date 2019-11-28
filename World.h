@@ -26,7 +26,8 @@ class World {
     void init(uint32_t seed);    
     void draw(int32_t x, int32_t y);
     void drawMini(int32_t x, int32_t y);
-    
+    int8_t tileAt(int32_t playerX, int32_t playerY);
+
   private:
     LFSR     lfsr;
     int16_t  lfsrX;
@@ -37,6 +38,8 @@ class World {
     int8_t blockType(int8_t tile);
     int8_t calcBlock(int16_t playerX, int16_t playerY);
     int8_t tileInBlock(uint8_t segments, int16_t tileX, int16_t tileY);
+    int8_t mergeTile(int8_t tile1, int8_t tile2);
     void drawTile(const unsigned char *sprites, uint8_t tile, uint8_t sx, uint8_t sy, uint8_t tx, uint8_t ty, uint8_t mx, uint8_t my);
 };
+
     

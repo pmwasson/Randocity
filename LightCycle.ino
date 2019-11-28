@@ -32,9 +32,9 @@ static const uint8_t  colorFG = WHITE;
 Direction playerDirection = north;
 uint8_t frame = 0;
 int32_t playerX = ((int32_t)world.mapWidth/2l)<<11;
-int32_t playerY = ((int32_t)world.mapHeight/2l)<<11;
+int32_t playerY = (((int32_t)world.mapHeight/2l)<<11) - (32l<<5);
 int8_t  playerSpeed = 0;
-static const int8_t maxSpeed = 14;
+static const int8_t maxSpeed = 16;
 uint8_t offsetX = targetMidH;
 uint8_t offsetY = targetMidV;
 uint8_t targetX = offsetX;
@@ -99,9 +99,31 @@ void loop() {
   if (!(arduboy.nextFrame())) return;
   arduboy.pollButtons();
 
+  // What is underfoot?
+  int8_t playerTile = world.tileAt(playerX>>2,playerY>>2);
+
   // Count to 3
   if ((playerSpeed > 0) && (arduboy.everyXFrames(1+maxSpeed-playerSpeed))) {
     frame = (frame == 2) ? 0 : frame+1;
+  }
+
+  if (playerTile == tilesRoadGravel) {
+    playerSpeed = max(playerSpeed-1,0);  
+  }
+  
+  if (arduboy.justPressed(A_BUTTON)) {
+    playerSpeed = max(playerSpeed-2,0);  
+    if (playerSpeed > 0)
+      soundBreak();
+    if (arduboy.pressed(DOWN_BUTTON)) {
+      generateWorld();
+    }
+  }
+
+  if (arduboy.justPressed(B_BUTTON)) {
+    playerSpeed = min(playerSpeed+2,maxSpeed);  
+    if (playerSpeed < maxSpeed)
+      soundAccel();
   }
 
   if (arduboy.justPressed(RIGHT_BUTTON)) {
@@ -114,20 +136,7 @@ void loop() {
     soundTurn();
   }
 
-  if (arduboy.justPressed(B_BUTTON)) {
-    playerSpeed = min(playerSpeed+2,maxSpeed);  
-    if (playerSpeed < maxSpeed)
-      soundAccel();
-  }
 
-  if (arduboy.justPressed(A_BUTTON)) {
-    playerSpeed = max(playerSpeed-2,0);  
-    if (playerSpeed > 0)
-      soundBreak();
-    if (arduboy.pressed(DOWN_BUTTON)) {
-      generateWorld();
-    }
-  }
 
   uint8_t playerFrame = 0;
   switch(playerDirection) {
@@ -224,9 +233,9 @@ void loop() {
       tilesBullseye,0);
   }
 
-
-  arduboy.setCursor(0,HEIGHT-8);
-  arduboy.println(arduboy.cpuLoad());
+//
+//  arduboy.setCursor(0,HEIGHT-16);
+//  arduboy.println(arduboy.cpuLoad());
   
   soundMotor();
   arduboy.display();

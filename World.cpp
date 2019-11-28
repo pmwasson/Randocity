@@ -112,10 +112,8 @@ void World::drawMini(int32_t playerX, int32_t playerY) {
 void World::draw(int32_t playerX, int32_t playerY) {
   uint8_t offsetX = playerX & 0x7;
   uint8_t offsetY = playerY & 0x7;
-  int32_t tileX = playerX - (mainRight-mainLeft)/2;
-  int32_t tileY = playerY - (mainBottom-mainTop)/2;
-  int16_t blockX = tileX >> 9;
-  int16_t blockY = tileY >> 9;
+  int16_t blockX = playerX >> 9;
+  int16_t blockY = playerY >> 9;
   
   // Get tile (upper-left)
   int8_t block = calcBlock(blockX,blockY);
@@ -128,17 +126,17 @@ void World::draw(int32_t playerX, int32_t playerY) {
   uint8_t segments = pgm_read_byte(blockSegments + block);
   uint8_t otherSegmentsH = pgm_read_byte(blockSegments + otherBlockX);
   uint8_t otherSegmentsV = pgm_read_byte(blockSegments + otherBlockY);
-  uint8_t firstY = 0x3f&((tileY-offsetY)>>3);
-  uint8_t firstX = 0x3f&((tileX-offsetX)>>3);
+  uint8_t firstY = 0x3f&((playerY-offsetY)>>3);
+  uint8_t firstX = 0x3f&((playerX-offsetX)>>3);
   
   uint8_t ty = offsetY;  
   for (uint8_t y=mainTop; y < mainBottom; y += (y == mainTop) ? 8 - offsetY : 8) {
     uint8_t tx = offsetX;
-    uint8_t lookupY = 0x3f&((tileY+y-ty-mainTop)>>3);
+    uint8_t lookupY = 0x3f&((playerY+y-ty-mainTop)>>3);
     uint8_t segmentsY = (lookupY < firstY) ? otherSegmentsV : segments;
     
     for (uint8_t x=mainLeft; x < mainRight; x += (x == mainLeft) ? 8 - offsetX : 8) {
-      uint8_t lookupX = 0x3f&((tileX+x-tx-mainLeft)>>3);
+      uint8_t lookupX = 0x3f&((playerX+x-tx-mainLeft)>>3);
       uint8_t segmentsX = (lookupX < firstX) ? otherSegmentsH : segmentsY;
       int8_t tile = tileInBlock(segmentsX,lookupX,lookupY);
       drawTile(tilesRoad,tile,x,y,tx,ty,mainRight,mainBottom);
@@ -146,56 +144,71 @@ void World::draw(int32_t playerX, int32_t playerY) {
     }
     ty=0;
   }
+}
 
-//  arduboy.setCursor(0,0);
-//  arduboy.print(blockX);
-//  arduboy.print(",");
-//  arduboy.print(blockY);
-//  arduboy.print(":");
-//  arduboy.println(segments,HEX);
-//  arduboy.print(((tileX-mainLeft)>>3));
-//  arduboy.print(",");
-//  arduboy.print((tileY>>3)&0x3f);
+int8_t World::tileAt(int32_t playerX, int32_t playerY) {
+  int16_t blockX = playerX >> 9;
+  int16_t blockY = playerY >> 9;
+  int8_t  block = calcBlock(blockX,blockY);
+  uint8_t segments = pgm_read_byte(blockSegments + block);
+  uint8_t lookupY = 0x3f&((playerY+4)>>3);
+  uint8_t lookupX = 0x3f&((playerX+4)>>3);
+  return tileInBlock(segments,lookupX,lookupY);
 }
 
 int8_t World::tileInBlock(uint8_t segments, int16_t tileX, int16_t tileY) {
+  int8_t tileH  = tilesRoadGravel;
   if ( (((segments & blockSegmentNorth) != 0) && (tileY < 32) ||
        (((segments & blockSegmentSouth) != 0) && (tileY > 31) )) &&
        (tileX > 28) && (tileX < 35)) {
-      return (((tileX==31) && (tileY%2)) || (tileX==34)) ? tilesRoadStripeEast :
-             (((tileX==32) && (tileY%2)) || (tileX==29)) ? tilesRoadStripeWest :
-             tilesRoadBlackTop;
+      tileH = (((tileX==31) && (tileY%2)) || (tileX==34)) ? tilesRoadStripeEast :
+              (((tileX==32) && (tileY%2)) || (tileX==29)) ? tilesRoadStripeWest :
+              tilesRoadBlackTop;
   }
+  int8_t tile = tileH;
 
+  int8_t tileV  = tilesRoadGravel;
   if ( (((segments & blockSegmentWest) != 0) && (tileX < 32) ||
        (((segments & blockSegmentEast) != 0) && (tileX > 31) )) &&
        (tileY > 28) && (tileY < 35)) {
-      return (((tileY==31) && (tileX%2)) || (tileY==34)) ? tilesRoadStripeSouth :
-             (((tileY==32) && (tileX%2)) || (tileY==29)) ? tilesRoadStripeNorth :
-             tilesRoadBlackTop;
+      tileV = (((tileY==31) && (tileX%2)) || (tileY==34)) ? tilesRoadStripeSouth :
+              (((tileY==32) && (tileX%2)) || (tileY==29)) ? tilesRoadStripeNorth :
+              tilesRoadBlackTop;
   }
+  tile = mergeTile(tile,tileV);
 
+  int8_t tileD1 = tilesRoadGravel;
   int16_t tileXmY = tileX - tileY;
-
   if ( (((segments & blockSegmentNorthEast) != 0) && ( tileXmY > 27) && ( tileXmY < 37)) ||  
        (((segments & blockSegmentSouthWest) != 0) && (-tileXmY > 27) && (-tileXmY < 37))) {
-      return ((abs(tileXmY)==32) && (tileY%2)) ? tilesRoadStripeNW2SE 
-            :((tileXmY==28) || (tileXmY==-36)) ? tilesRoadEdgeSW
-            :((tileXmY==36) || (tileXmY==-28)) ? tilesRoadEdgeNE
-            :                                    tilesRoadBlackTop;
+      tileD1 =((abs(tileXmY)==32) && (tileY%2)) ? tilesRoadStripeNW2SE 
+             :((tileXmY==28) || (tileXmY==-36)) ? tilesRoadEdgeSW
+             :((tileXmY==36) || (tileXmY==-28)) ? tilesRoadEdgeNE
+             :                                    tilesRoadBlackTop;
   }
-
+  tile = mergeTile(tile,tileD1);
+  
+  int8_t tileD2 = tilesRoadGravel;
   int16_t tileXpY = 64 - (tileX + tileY);
-
   if ( (((segments & blockSegmentNorthWest) != 0) && ( tileXpY > 27) && ( tileXpY < 37)) ||  
        (((segments & blockSegmentSouthEast) != 0) && (-tileXpY > 27) && (-tileXpY < 37))) {
-      return ((abs(tileXpY)==32) && (tileY%2)) ? tilesRoadStripeNE2SW 
-            :((tileXpY==28) || (tileXpY==-36)) ? tilesRoadEdgeSE
-            :((tileXpY==36) || (tileXpY==-28)) ? tilesRoadEdgeNW
-            :                                    tilesRoadBlackTop;
+      tileD2 =((abs(tileXpY)==32) && (tileY%2)) ? tilesRoadStripeNE2SW 
+             :((tileXpY==28) || (tileXpY==-36)) ? tilesRoadEdgeSE
+             :((tileXpY==36) || (tileXpY==-28)) ? tilesRoadEdgeNW
+             :                                    tilesRoadBlackTop;
   }
-  
-  return tilesRoadGravel;
+  tile = mergeTile(tile,tileD2);
+
+  return tile;
+}
+
+int8_t World::mergeTile(int8_t tile1, int8_t tile2) {
+  if (tile1 == tilesRoadGravel) return tile2;
+  if (tile2 == tilesRoadGravel) return tile1;
+  if (tile1 == tilesRoadBlackTop) return tile1;
+  if (tile2 == tilesRoadBlackTop) return tile2;
+  // conflict
+  return tilesRoadBlackTop;
 }
 
 /*
