@@ -133,12 +133,14 @@ void World::draw(int32_t playerX, int32_t playerY) {
   for (uint8_t y=mainTop; y < mainBottom; y += (y == mainTop) ? 8 - offsetY : 8) {
     uint8_t tx = offsetX;
     uint8_t lookupY = 0x3f&((playerY+y-ty-mainTop)>>3);
-    uint8_t segmentsY = (lookupY < firstY) ? otherSegmentsV : segments;
+    bool    useOtherY = (lookupY < firstY);
     
     for (uint8_t x=mainLeft; x < mainRight; x += (x == mainLeft) ? 8 - offsetX : 8) {
       uint8_t lookupX = 0x3f&((playerX+x-tx-mainLeft)>>3);
-      uint8_t segmentsX = (lookupX < firstX) ? otherSegmentsH : segmentsY;
-      int8_t tile = tileInBlock(segmentsX,lookupX,lookupY);
+      bool  useOtherX = (lookupX < firstX);
+      uint8_t primarySegments = useOtherX ? otherSegmentsH : useOtherY ? otherSegmentsV : segments;
+      uint8_t secondarySegments = useOtherX || useOtherY ? segments : 0;
+      int8_t tile = tileInBlock(primarySegments,lookupX,lookupY,secondarySegments);
       drawTile(tilesRoad,tile,x,y,tx,ty,mainRight,mainBottom);
       tx=0;
     }
@@ -158,52 +160,55 @@ int8_t World::tileAt(int32_t playerX, int32_t playerY) {
   uint8_t segments = getSegments(block);
   uint8_t lookupY = 0x3f&((playerY+4)>>3);
   uint8_t lookupX = 0x3f&((playerX+4)>>3);
-  return tileInBlock(segments,lookupX,lookupY);
+  return tileInBlock(segments,lookupX,lookupY,0);
 }
 
-int8_t World::tileInBlock(uint8_t segments, int16_t tileX, int16_t tileY) {
-  int8_t tileH  = tilesRoadGravel;
+int8_t World::tileInBlock(uint8_t segments, int16_t tileX, int16_t tileY, uint8_t otherSegments) {
+  int8_t tile  = tilesRoadGravel;
   if ( (((segments & blockSegmentNorth) != 0) && (tileY < 32) ||
        (((segments & blockSegmentSouth) != 0) && (tileY > 31) )) &&
        (tileX > 28) && (tileX < 35)) {
-      tileH = (((tileX==31) && (tileY%2)) || (tileX==34)) ? tilesRoadStripeEast :
-              (((tileX==32) && (tileY%2)) || (tileX==29)) ? tilesRoadStripeWest :
+      tile = (((tileX==31) && (tileY%2)) || (tileX==34)) ? tilesRoadStripeEast :
+             (((tileX==32) && (tileY%2)) || (tileX==29)) ? tilesRoadStripeWest :
               tilesRoadBlackTop;
   }
-  int8_t tile = tileH;
 
-  int8_t tileV  = tilesRoadGravel;
   if ( (((segments & blockSegmentWest) != 0) && (tileX < 32) ||
        (((segments & blockSegmentEast) != 0) && (tileX > 31) )) &&
        (tileY > 28) && (tileY < 35)) {
-      tileV = (((tileY==31) && (tileX%2)) || (tileY==34)) ? tilesRoadStripeSouth :
-              (((tileY==32) && (tileX%2)) || (tileY==29)) ? tilesRoadStripeNorth :
-              tilesRoadBlackTop;
+      tile = (((tileY==31) && (tileX%2)) || ((tile == tilesRoadGravel) && (tileY==34))) ? tilesRoadStripeSouth :
+             (((tileY==32) && (tileX%2)) || ((tile == tilesRoadGravel) && (tileY==29))) ? tilesRoadStripeNorth :
+             tilesRoadBlackTop;
   }
-  tile = mergeTile(tile,tileV);
 
-  int8_t tileD1 = tilesRoadGravel;
   int16_t tileXmY = tileX - tileY;
   if ( (((segments & blockSegmentNorthEast) != 0) && ( tileXmY > 27) && ( tileXmY < 37)) ||  
        (((segments & blockSegmentSouthWest) != 0) && (-tileXmY > 27) && (-tileXmY < 37))) {
-      tileD1 =((abs(tileXmY)==32) && (tileY%2)) ? tilesRoadStripeNW2SE 
-             :((tileXmY==28) || (tileXmY==-36)) ? tilesRoadEdgeSW
-             :((tileXmY==36) || (tileXmY==-28)) ? tilesRoadEdgeNE
-             :                                    tilesRoadBlackTop;
+      tile =((abs(tileXmY)==32) && (tileY%2)) ? tilesRoadStripeNW2SE 
+            :((tileXmY==28) || (tileXmY==-36)) && (tile == tilesRoadGravel) ? tilesRoadEdgeSW
+            :((tileXmY==36) || (tileXmY==-28)) && (tile == tilesRoadGravel) ? tilesRoadEdgeNE
+            :                                                                 tilesRoadBlackTop;
   }
-  tile = mergeTile(tile,tileD1);
-  
-  int8_t tileD2 = tilesRoadGravel;
+
   int16_t tileXpY = 64 - (tileX + tileY);
   if ( (((segments & blockSegmentNorthWest) != 0) && ( tileXpY > 27) && ( tileXpY < 37)) ||  
        (((segments & blockSegmentSouthEast) != 0) && (-tileXpY > 27) && (-tileXpY < 37))) {
-      tileD2 =((abs(tileXpY)==32) && (tileY%2)) ? tilesRoadStripeNE2SW 
-             :((tileXpY==28) || (tileXpY==-36)) ? tilesRoadEdgeSE
-             :((tileXpY==36) || (tileXpY==-28)) ? tilesRoadEdgeNW
-             :                                    tilesRoadBlackTop;
+      tile =((abs(tileXpY)==32) && (tileY%2)) ? tilesRoadStripeNE2SW 
+           :((tileXpY==28) || (tileXpY==-36)) && (tile == tilesRoadGravel) ? tilesRoadEdgeSE
+           :((tileXpY==36) || (tileXpY==-28)) && (tile == tilesRoadGravel) ? tilesRoadEdgeNW
+           :                                                                 tilesRoadBlackTop;
   }
-  tile = mergeTile(tile,tileD2);
 
+  // Special case clean up
+  if (((segments & blockSegmentSouth) != 0) && (tileX==28) && (tileY==0) && ((otherSegments & blockSegmentSouthWest) != 0)) tile = tilesRoadEdgeSW;
+  if (((segments & blockSegmentSouth) != 0) && (tileX==29) && (tileY==0) && ((otherSegments & blockSegmentSouthWest) != 0)) tile = tilesRoadBlackTop;
+  if (((segments & blockSegmentSouth) != 0) && (tileX==34) && (tileY==0) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
+  if (((segments & blockSegmentSouth) != 0) && (tileX==35) && (tileY==0) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
+  if (((segments & blockSegmentSouth) != 0) && (tileX==36) && (tileY==0) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadEdgeSE;
+  if (((segments & blockSegmentSouth) != 0) && (tileX==34) && (tileY==1) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
+  if (((segments & blockSegmentSouth) != 0) && (tileX==35) && (tileY==1) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadEdgeSE;
+  
+             
   return tile;
 }
 

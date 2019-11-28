@@ -38,7 +38,7 @@ class World {
     int8_t blockType(int8_t tile);
     int8_t calcBlock(int16_t playerX, int16_t playerY);
     uint8_t getSegments(int8_t block);
-    int8_t tileInBlock(uint8_t segments, int16_t tileX, int16_t tileY);
+    int8_t tileInBlock(uint8_t segments, int16_t tileX, int16_t tileY, uint8_t otherSegments);
     int8_t mergeTile(int8_t tile1, int8_t tile2);
     void drawTile(const unsigned char *sprites, uint8_t tile, uint8_t sx, uint8_t sy, uint8_t tx, uint8_t ty, uint8_t mx, uint8_t my);
 };
