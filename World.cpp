@@ -123,9 +123,9 @@ void World::draw(int32_t playerX, int32_t playerY) {
   int8_t otherBlockX = calcBlock(blockX+1,blockY);
   int8_t otherBlockY = calcBlock(blockX,blockY+1);
 
-  uint8_t segments = pgm_read_byte(blockSegments + block);
-  uint8_t otherSegmentsH = pgm_read_byte(blockSegments + otherBlockX);
-  uint8_t otherSegmentsV = pgm_read_byte(blockSegments + otherBlockY);
+  uint8_t segments = getSegments(block);
+  uint8_t otherSegmentsH = getSegments(otherBlockX);
+  uint8_t otherSegmentsV = getSegments(otherBlockY);
   uint8_t firstY = 0x3f&((playerY-offsetY)>>3);
   uint8_t firstX = 0x3f&((playerX-offsetX)>>3);
   
@@ -146,11 +146,16 @@ void World::draw(int32_t playerX, int32_t playerY) {
   }
 }
 
+uint8_t World::getSegments(int8_t block) {
+  if (block >=0) return pgm_read_byte(blockSegments + block);
+  return 0;
+}
+
 int8_t World::tileAt(int32_t playerX, int32_t playerY) {
   int16_t blockX = playerX >> 9;
   int16_t blockY = playerY >> 9;
   int8_t  block = calcBlock(blockX,blockY);
-  uint8_t segments = pgm_read_byte(blockSegments + block);
+  uint8_t segments = getSegments(block);
   uint8_t lookupY = 0x3f&((playerY+4)>>3);
   uint8_t lookupX = 0x3f&((playerX+4)>>3);
   return tileInBlock(segments,lookupX,lookupY);
