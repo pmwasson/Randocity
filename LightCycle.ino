@@ -60,7 +60,7 @@ void generateWorld() {
   world.init(seed);
 }
 
-void loop_disabled() {
+void loop_x() {
   if (!(arduboy.nextFrame())) return;
   arduboy.pollButtons();
 
@@ -107,9 +107,9 @@ void loop() {
     frame = (frame == 2) ? 0 : frame+1;
   }
 
-  if (playerTile == tilesRoadGravel) {
-    playerSpeed = max(playerSpeed-1,0);  
-  }
+//  if (playerTile == tilesRoadGravel) {
+//    playerSpeed = max(playerSpeed-1,0);  
+//  }
   
   if (arduboy.justPressed(A_BUTTON)) {
     playerSpeed = max(playerSpeed-2,0);  

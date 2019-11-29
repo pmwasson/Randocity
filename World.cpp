@@ -61,6 +61,9 @@ int8_t World::blockType(int8_t block) {
 }
 
 int8_t World::calcBlock(int16_t x, int16_t y) {
+
+  //return tilesMiniMapFull + ((x^y)&1)*2 + 1;
+  
   int8_t block = getBlock(x,y);
   if (block < 0) return block;
   int8_t fullBlock = tilesMiniMapFull + (block&0x3);
@@ -112,40 +115,47 @@ void World::drawMini(int32_t playerX, int32_t playerY) {
 void World::draw(int32_t playerX, int32_t playerY) {
   uint8_t offsetX = playerX & 0x7;
   uint8_t offsetY = playerY & 0x7;
-  int16_t blockX = playerX >> 9;
-  int16_t blockY = playerY >> 9;
-  
-  // Get tile (upper-left)
-  int8_t block = calcBlock(blockX,blockY);
-
-  // Since corners have no roads, only need 1 other block for transition
-  // If within 8, choose that direction
-  int8_t otherBlockX = calcBlock(blockX+1,blockY);
-  int8_t otherBlockY = calcBlock(blockX,blockY+1);
-
-  uint8_t segments = getSegments(block);
-  uint8_t otherSegmentsH = getSegments(otherBlockX);
-  uint8_t otherSegmentsV = getSegments(otherBlockY);
+  int16_t blockX  = playerX >> 9;
+  int16_t blockY  = playerY >> 9;
+  uint8_t tileY = 0x3f&(playerY>>3);
+  uint8_t tileX = 0x3f&(playerX>>3);
   uint8_t firstY = 0x3f&((playerY-offsetY)>>3);
   uint8_t firstX = 0x3f&((playerX-offsetX)>>3);
-  
-  uint8_t ty = offsetY;  
+    
+  // Get tile (upper-left)
+  int8_t block = calcBlock(blockX,blockY);
+  uint8_t segments = getSegments(block);
+
+  // Since corners have no roads, only need 1 other block for transition
+  // If within 16, choose that direction
+  uint8_t otherSegments = (firstX < 16) ?  getSegments(calcBlock(blockX-1,blockY)) : 
+                          (firstX > 48) ?  getSegments(calcBlock(blockX+1,blockY)) :
+                          (firstY < 16) ?  getSegments(calcBlock(blockX,blockY-1)) : 
+                                           getSegments(calcBlock(blockX,blockY+1)) ;
+
+  uint8_t ty = offsetY;
   for (uint8_t y=mainTop; y < mainBottom; y += (y == mainTop) ? 8 - offsetY : 8) {
     uint8_t tx = offsetX;
     uint8_t lookupY = 0x3f&((playerY+y-ty-mainTop)>>3);
-    bool    useOtherY = (lookupY < firstY);
+    bool useOther = (lookupY < firstY);
     
     for (uint8_t x=mainLeft; x < mainRight; x += (x == mainLeft) ? 8 - offsetX : 8) {
       uint8_t lookupX = 0x3f&((playerX+x-tx-mainLeft)>>3);
-      bool  useOtherX = (lookupX < firstX);
-      uint8_t primarySegments = useOtherX ? otherSegmentsH : useOtherY ? otherSegmentsV : segments;
-      uint8_t secondarySegments = useOtherX || useOtherY ? segments : 0;
-      int8_t tile = tileInBlock(primarySegments,lookupX,lookupY,secondarySegments);
+      useOther |= (lookupX < firstX);
+      int8_t tile = tileInBlock(useOther ? otherSegments : segments,lookupX,lookupY,useOther ? segments : otherSegments);
       drawTile(tilesRoad,tile,x,y,tx,ty,mainRight,mainBottom);
       tx=0;
     }
     ty=0;
   }
+
+  arduboy.setCursor(0,0);
+  arduboy.print(segments,HEX);
+  arduboy.print(",");
+  arduboy.println(otherSegments,HEX);
+  arduboy.print(firstX);
+  arduboy.print(",");
+  arduboy.println(firstY);
 }
 
 uint8_t World::getSegments(int8_t block) {
@@ -191,22 +201,51 @@ int8_t World::tileInBlock(uint8_t segments, int16_t tileX, int16_t tileY, uint8_
   }
 
   int16_t tileXpY = 64 - (tileX + tileY);
-  if ( (((segments & blockSegmentNorthWest) != 0) && ( tileXpY > 27) && ( tileXpY < 37)) ||  
-       (((segments & blockSegmentSouthEast) != 0) && (-tileXpY > 27) && (-tileXpY < 37))) {
+  if ( (((segments & blockSegmentNorthWest) != 0) && ( tileXpY > 28) && ( tileXpY < 37)) ||  
+       (((segments & blockSegmentSouthEast) != 0) && (-tileXpY > 28) && (-tileXpY < 37))) {
       tile =((abs(tileXpY)==32) && (tileY%2)) ? tilesRoadStripeNE2SW 
-           :((tileXpY==28) || (tileXpY==-36)) && (tile == tilesRoadGravel) ? tilesRoadEdgeSE
-           :((tileXpY==36) || (tileXpY==-28)) && (tile == tilesRoadGravel) ? tilesRoadEdgeNW
+           :((tileXpY==29) || (tileXpY==-36)) && (tile == tilesRoadGravel) ? tilesRoadEdgeSE
+           :((tileXpY==36) || (tileXpY==-29)) && (tile == tilesRoadGravel) ? tilesRoadEdgeNW
            :                                                                 tilesRoadBlackTop;
   }
 
   // Special case clean up
-  if (((segments & blockSegmentSouth) != 0) && (tileX==28) && (tileY==0) && ((otherSegments & blockSegmentSouthWest) != 0)) tile = tilesRoadEdgeSW;
-  if (((segments & blockSegmentSouth) != 0) && (tileX==29) && (tileY==0) && ((otherSegments & blockSegmentSouthWest) != 0)) tile = tilesRoadBlackTop;
-  if (((segments & blockSegmentSouth) != 0) && (tileX==34) && (tileY==0) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
-  if (((segments & blockSegmentSouth) != 0) && (tileX==35) && (tileY==0) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
-  if (((segments & blockSegmentSouth) != 0) && (tileX==36) && (tileY==0) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadEdgeSE;
-  if (((segments & blockSegmentSouth) != 0) && (tileX==34) && (tileY==1) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
-  if (((segments & blockSegmentSouth) != 0) && (tileX==35) && (tileY==1) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadEdgeSE;
+  if (((segments & blockSegmentNorthWest) != 0) && (tileX==0) && (tileY==28) && ((otherSegments & blockSegmentEast) != 0)) tile = tilesRoadEdgeNW;
+
+  if (((segments & blockSegmentEast) != 0) && (tileX==63) && (tileY==35) && ((otherSegments & blockSegmentSouthWest) != 0)) tile = tilesRoadEdgeSW;
+  if (((segments & blockSegmentEast) != 0) && (tileX==63) && (tileY==34) && ((otherSegments & blockSegmentSouthWest) != 0)) tile = tilesRoadBlackTop;
+
+  if (((segments & blockSegmentNorth) != 0) && (tileY==0) && (tileX==28) && ((otherSegments & blockSegmentSouthWest) != 0)) tile = tilesRoadEdgeSW;
+  if (((segments & blockSegmentNorth) != 0) && (tileY==0) && (tileX==29) && ((otherSegments & blockSegmentSouthWest) != 0)) tile = tilesRoadBlackTop;
+  
+  if (((segments & blockSegmentNorth) != 0) && (tileY==0) && (tileX==34) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
+  if (((segments & blockSegmentNorth) != 0) && (tileY==0) && (tileX==35) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
+  if (((segments & blockSegmentNorth) != 0) && (tileY==0) && (tileX==36) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadEdgeSE;
+  if (((segments & blockSegmentNorth) != 0) && (tileY==1) && (tileX==34) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
+  if (((segments & blockSegmentNorth) != 0) && (tileY==1) && (tileX==35) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadEdgeSE;
+
+  if (((segments & blockSegmentSouthWest) != 0) && (tileX==0) && (tileY==36) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadStripeSouth;
+
+  if (((segments & blockSegmentWest) != 0) && (tileX==1) && (tileY==29) && ((otherSegments & blockSegmentNorthEast) != 0)) tile = tilesRoadStripeNorth;
+
+  if (((segments & blockSegmentSouth) != 0) && (tileY==63) && (tileX==34) && ((otherSegments & blockSegmentNorthEast) != 0)) tile = tilesRoadBlackTop;
+  if (((segments & blockSegmentSouth) != 0) && (tileY==63) && (tileX==35) && ((otherSegments & blockSegmentNorthEast) != 0)) tile = tilesRoadEdgeNE;
+
+  if (((segments & blockSegmentNorthEast) != 0) && (tileY==0) && (tileX==28) && ((otherSegments & blockSegmentSouth) != 0)) tile = tilesRoadEdgeNW;
+
+  if (((segments & blockSegmentWest) != 0) && (tileX==0) && (tileY==34) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
+  if (((segments & blockSegmentWest) != 0) && (tileX==0) && (tileY==35) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
+  if (((segments & blockSegmentWest) != 0) && (tileX==0) && (tileY==36) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadEdgeSE;
+  if (((segments & blockSegmentWest) != 0) && (tileX==1) && (tileY==34) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
+  if (((segments & blockSegmentWest) != 0) && (tileX==1) && (tileY==35) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadEdgeSE;
+
+//  if (((segments & blockSegmentSouth) != 0) && (tileX==28) && (tileY==0) && ((otherSegments & blockSegmentSouthWest) != 0)) tile = tilesRoadEdgeSW;
+//  if (((segments & blockSegmentSouth) != 0) && (tileX==29) && (tileY==0) && ((otherSegments & blockSegmentSouthWest) != 0)) tile = tilesRoadBlackTop;
+//  if (((segments & blockSegmentSouth) != 0) && (tileX==34) && (tileY==0) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
+//  if (((segments & blockSegmentSouth) != 0) && (tileX==35) && (tileY==0) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
+//  if (((segments & blockSegmentSouth) != 0) && (tileX==36) && (tileY==0) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadEdgeSE;
+//  if (((segments & blockSegmentSouth) != 0) && (tileX==34) && (tileY==1) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadBlackTop;
+//  if (((segments & blockSegmentSouth) != 0) && (tileX==35) && (tileY==1) && ((otherSegments & blockSegmentSouthEast) != 0)) tile = tilesRoadEdgeSE;
   
              
   return tile;
