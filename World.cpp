@@ -62,7 +62,27 @@ int8_t World::blockType(int8_t block) {
 
 int8_t World::calcBlock(int16_t x, int16_t y) {  
   int8_t block = getBlock(x,y);
-  if (block < 0) return tilesMiniMapVoid;
+  
+  if (block < 0) {
+    if ((y==-1) && (x >= -1) && (x <= mapWidth)) {
+      return (x==mapWidth) ? tilesMiniMapCrossNoNE : 
+             (x==-1)       ? tilesMiniMapCrossNoNW :
+                             tilesMiniMapCrossNoNorth;
+    }
+    if ((y==mapHeight) && (x >= -1) && (x <= mapWidth)) { 
+      return (x==mapWidth) ? tilesMiniMapCrossNoSE : 
+             (x==-1)       ? tilesMiniMapCrossNoSW :
+                             tilesMiniMapCrossNoSouth; 
+    }
+    if ((x==mapWidth) && (y > -1) && (y < mapHeight)) {
+      return tilesMiniMapCrossNoEast; 
+    }
+    if ((x==-1) && (y > -1) && (y < mapHeight)) {
+      return tilesMiniMapCrossNoWest;
+    }
+    return tilesMiniMapVoid;
+  }
+  
   int8_t fullBlock = tilesMiniMapFull + (block&0x3);
   switch(blockType(block)) {
     case blockNoNorth: return (blockType(peekBlock(x,y-1)) == blockNoSouth) ? block : fullBlock;
@@ -150,9 +170,9 @@ void World::draw(int32_t playerX, int32_t playerY) {
 //  arduboy.print(",");
 //  arduboy.println(otherSegments,HEX);
 //  arduboy.setCursor(48,8);
-//  arduboy.print(firstX);
+//  arduboy.print(blockX);
 //  arduboy.print(",");
-//  arduboy.println(firstY);
+//  arduboy.println(blockY);
 }
 
 uint8_t World::getSegments(int8_t block) {
@@ -177,16 +197,16 @@ int8_t World::tileInBlock(uint8_t segments, int16_t tileX, int16_t tileY, uint8_
     return tilesRoadDirt;
   }
   
-  if ( (((segments & blockSegmentNorth) != 0) && (tileY < 32) ||
-       (((segments & blockSegmentSouth) != 0) && (tileY > 31) )) &&
+  if ( (((segments & blockSegmentNorth) != 0) && (tileY < 33) ||
+       (((segments & blockSegmentSouth) != 0) && (tileY > 30) )) &&
        (tileX > 28) && (tileX < 35)) {
       tile = (((tileX==31) && (tileY%2)) || (tileX==34)) ? tilesRoadStripeEast :
              (((tileX==32) && (tileY%2)) || (tileX==29)) ? tilesRoadStripeWest :
               tilesRoadBlackTop;
   }
 
-  if ( (((segments & blockSegmentWest) != 0) && (tileX < 32) ||
-       (((segments & blockSegmentEast) != 0) && (tileX > 31) )) &&
+  if ( (((segments & blockSegmentWest) != 0) && (tileX < 33) ||
+       (((segments & blockSegmentEast) != 0) && (tileX > 30) )) &&
        (tileY > 28) && (tileY < 35)) {
       tile = (((tileY==31) && (tileX%2)) || ((tile == tilesRoadGravel) && (tileY==34))) ? tilesRoadStripeSouth :
              (((tileY==32) && (tileX%2)) || ((tile == tilesRoadGravel) && (tileY==29))) ? tilesRoadStripeNorth :

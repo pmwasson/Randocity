@@ -4,8 +4,8 @@
 
 class World {
   public:
-    static const uint16_t mapWidth = 256; 
-    static const uint16_t mapHeight = 256;
+    static const int16_t mapWidth = 256; 
+    static const int16_t mapHeight = 256;
     static const uint8_t tileTypes = 16;
 
     static const uint8_t mainLeft = 0;

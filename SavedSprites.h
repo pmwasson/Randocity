@@ -59,12 +59,22 @@ const unsigned char PROGMEM tilesRoad[] = {
 // mini-map
 
 static const uint8_t tilesMiniMapFull = 16;
-static const uint8_t tilesMiniMapVoid = 20;
+static const uint8_t tilesMiniMapVoid = 24;
 
 static const uint8_t blockNoNorth = 0;
 static const uint8_t blockNoEast  = 1;
 static const uint8_t blockNoSouth = 2;
 static const uint8_t blockNoWest  = 3;
+
+// City edge cases
+static const uint8_t tilesMiniMapCrossNoNorth = 0*4+1;
+static const uint8_t tilesMiniMapCrossNoEast  = 1*4+1;
+static const uint8_t tilesMiniMapCrossNoSouth = 2*4+1;
+static const uint8_t tilesMiniMapCrossNoWest  = 3*4+1;
+static const uint8_t tilesMiniMapCrossNoNE    = 20;
+static const uint8_t tilesMiniMapCrossNoSE    = 21;
+static const uint8_t tilesMiniMapCrossNoSW    = 22;
+static const uint8_t tilesMiniMapCrossNoNW    = 23;
 
 const unsigned char PROGMEM tilesMiniMap[] = {
 8,8,
@@ -92,7 +102,12 @@ const unsigned char PROGMEM tilesMiniMap[] = {
 0x3C, 0x7E, 0xE7, 0xC3, 0xC3, 0xE7, 0x7E, 0x3C, 
 0x18, 0x18, 0x18, 0xFF, 0xFF, 0x18, 0x18, 0x18, 
 0x38, 0x70, 0xE0, 0xC1, 0x83, 0x07, 0x0E, 0x1C, 
-0x1C, 0x0E, 0x07, 0x83, 0xC1, 0xE0, 0x70, 0x38, 
+0x1C, 0x0E, 0x07, 0x83, 0xC1, 0xE0, 0x70, 0x38,
+// Edge - corners (NE,SE,SW,NW)
+0x38, 0x70, 0xE0, 0xC0, 0x80, 0x00, 0x00, 0x00, 
+0x1C, 0x0E, 0x07, 0x03, 0x01, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x01, 0x03, 0x07, 0x0E, 0x1C, 
+0x00, 0x00, 0x00, 0x80, 0xC0, 0xE0, 0x70, 0x38,
 // Void
 0x55, 0x00, 0xAA, 0x00, 0x55, 0x00, 0xAA, 0x00,
 };
@@ -141,7 +156,12 @@ const unsigned char PROGMEM blockSegments[] = {
   0b01010000, // backward-slash
   0b10100000, // forward-slash
 
-  0b01011010, // test!
+  0b01000000, // Void-NE
+  0b10000000, // Void-SE
+  0b00010000, // Void-SW
+  0b00100000, // Void-NW
+
+  0b00000000, // Void
 };
 
 const unsigned char PROGMEM tilesBullseye[] = {

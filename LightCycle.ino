@@ -31,10 +31,10 @@ static const uint8_t  colorFG = WHITE;
 
 Direction playerDirection = north;
 uint8_t frame = 0;
-int32_t playerX = 0; //((int32_t)world.mapWidth/2l)<<11;
+int32_t playerX = ((int32_t)world.mapWidth/2l)<<11;
 int32_t playerY = (((int32_t)world.mapHeight/2l)<<11) - (32l<<5);
 int8_t  playerSpeed = 0;
-static const int8_t maxSpeed = 16;
+static const int8_t maxSpeed = 20;
 uint8_t offsetX = targetMidH;
 uint8_t offsetY = targetMidV;
 uint8_t targetX = offsetX;
