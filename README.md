@@ -1,14 +1,18 @@
 # ProceduralCity
-## Introduction
+## Overview
+![Demo](demo.gif)
+
 Arduboy open-world procedurally generated city motorcycle toy
-* The city is generated from a random seed.  But a given seed will always produce the exact same city.
-  * The underlying algorithm uses an LFSR (linear feedback shift register) for the random element, but for a given seed the sequence is always the same.
 * The city is 256x256 blocks with each block being 64x64 tiles and each tile is 8x8 pixels. 
 * Assuming a block is 100m, then the random city is about the size of El Paso, TX
   * 100m/block * 256 block = 25.6km ~= 15.9 miles
   * (15.9 miles)<sup>2</sup> = 252.8 miles<sup>2</sup>
   * El Paso is about 255.2 miles<sup>2</sup>
 * You start out in the middle of the city and it takes about 10 minutes of playtime to reach the edge
+* The city is generated from a random seed.  But a given seed will always produce the exact same city.
+  * The underlying algorithm uses an LFSR (linear feedback shift register) for the random element, but for a given seed the sequence is always the same.
+  * Currently using a 20-bit LFSR (4 bits for a block _x_ 256 blocks wide _x_ 256 block high -> 20 bits.
+  * Could easily use larger LFSR for larger maps.  (32 bits would allow a 16k by 16k city with 4 bit blocks)
 * I call it a toy, since a game has goals and rules whereas a toy is just something to play with.
 ## Controls
 * Left/Right buttons turn
