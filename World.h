@@ -13,10 +13,10 @@ class World {
     static const uint8_t mainTop = 0;
     static const uint8_t mainBottom = HEIGHT;
     
-    static const uint8_t miniLeft = mainRight;
-    static const uint8_t miniRight = WIDTH;
-    static const uint8_t miniTop = 0;
-    static const uint8_t miniBottom = HEIGHT;
+    uint8_t miniLeft = mainRight;
+    uint8_t miniRight = WIDTH;
+    uint8_t miniTop = 0;
+    uint8_t miniBottom = HEIGHT;
 
     static const uint32_t minSeed = 1;
     static const uint32_t maxSeed = (1ul<<20)-1;
