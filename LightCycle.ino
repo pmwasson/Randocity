@@ -54,6 +54,9 @@ uint32_t seedRandom;
 uint8_t helpPage;
 static const int8_t helpPageMax = 5;
 
+int32_t courierX = (((int32_t)world.mapWidth/2l)<<11) - (8l<<2);
+int32_t courierY = (((int32_t)world.mapHeight/2l)<<11) + (32l<<5) - (8l<<2);
+
 void setup() {
   arduboy.begin();
   arduboy.setFrameRate(30);
@@ -86,13 +89,6 @@ void loop() {
 
 void generateWorld() {
   uint32_t seed = random(world.minSeed,world.maxSeed);
-//  arduboy.clear();
-//  font.setCursor(0,0);
-//  font.print(F("GENERATING\n  WORLD...\n\nSEED: "));
-//  printSeed(seed);
-//  arduboy.display();
-//  
-//  delay(500);
   world.init(seed);
 }
 
@@ -124,11 +120,11 @@ void titleLoop() {
   font.println(F("  BY PAUL WASSON   ")); 
   font.println(F("  DECEMBER, 2019   "));
   font.println();  
-  font.println(F("  PRESS _ FOR MENU "));
+  font.println(F("  PRESS @ FOR MENU "));
 
   arduboy.display();
 
-  if (arduboy.justPressed(B_BUTTON)) {
+  if (arduboy.justPressed(A_BUTTON)) {
     mode = menu;
   }
 }
@@ -388,8 +384,6 @@ void mainLoop() {
     soundTurn();
   }
 
-
-
   uint8_t playerFrame = 0;
   switch(playerDirection) {
     case north: 
@@ -466,27 +460,47 @@ void mainLoop() {
     offsetY--;
   }
 
+  // Draw world
   world.draw((playerX>>2)-offsetX,(playerY>>2)-offsetY);
-  sprites.drawPlusMask(offsetX,offsetY,tilesCycle,playerFrame);
-  
-//  sprites.drawOverwrite(world.miniLeft,HEIGHT-8,tilesRoad,tilesRoadSpeed+playerSpeed/2);
-//  arduboy.fillRect(2,2,8,60,!colorFG);
-//  arduboy.drawRect(2,2,8,60,colorFG);
-//  arduboy.fillRect(4,62-playerSpeed*6,4,playerSpeed*6,colorFG);
-////  arduboy.setCursor(0,0);
-////  arduboy.print(playerSpeed);
 
+  // Draw objects
+  int16_t courierScreenX = ((courierX-playerX)>>2)+offsetX;
+  int16_t courierScreenY = ((courierY-playerY)>>2)+offsetY;
+  if ((courierScreenX >= world.mainLeft-16) && (courierScreenX < world.mainRight) &&
+      (courierScreenY >= world.mainTop-16) && (courierScreenY < world.mainBottom)) {
+    sprites.drawPlusMask(courierScreenX,courierScreenY,tilesCycle,13);
+  }
+
+  // Draw player
+  sprites.drawPlusMask(offsetX,offsetY,tilesCycle,playerFrame);
+
+  // Draw map
   world.drawMini(playerX>>8,playerY>>8);
-  arduboy.drawRect(world.miniLeft,world.miniTop,world.miniRight-world.miniLeft,world.miniBottom-world.miniTop);
+
+
+  int32_t courierMiniScreenX = (world.miniRight+world.miniLeft-8)/2 + ((courierX - playerX)>>8);
+  int32_t courierMiniScreenY = (world.miniBottom+world.miniTop-8)/2 + ((courierY - playerY)>>8);
+  courierMiniScreenX = min(max(world.miniLeft,courierMiniScreenX),world.miniRight-8);
+  courierMiniScreenY = min(max(world.miniTop,courierMiniScreenY),world.miniBottom-8);
+  
+  if (arduboy.frameCount % 32 < 16) {
+      sprites.drawPlusMask(courierMiniScreenX,courierMiniScreenY,tilesBullseye,1);
+  }
+  
   if (arduboy.frameCount % 16 < 8) {
     sprites.drawPlusMask(
       (world.miniRight+world.miniLeft-8)/2,
       (world.miniBottom+world.miniTop-8)/2,
       tilesBullseye,0);
   }
+  
+  arduboy.drawRect(world.miniLeft,world.miniTop,world.miniRight-world.miniLeft,world.miniBottom-world.miniTop);
 
-//
-//  arduboy.setCursor(0,HEIGHT-16);
+
+//  arduboy.setCursor(0,HEIGHT-8);
+//  arduboy.print(courierMiniScreenX);
+//  arduboy.print(",");
+//  arduboy.print(courierMiniScreenY);
 //  arduboy.println(arduboy.cpuLoad());
   
   soundMotor();
@@ -500,76 +514,6 @@ void backGround(uint16_t color) {
     arduboy.sBuffer[offset++] = ((color&0x0f00)>>4) + ((color&0x0f00)>>8); 
     arduboy.sBuffer[offset++] =  (color&0x00f0)     + ((color&0x00f0)>>4);
     arduboy.sBuffer[offset++] =  (color&0x000f)     + ((color&0x000f)<<4);
-  }
-}
-
-void drawRoad() {
-
-  int16_t gridX = offsetX - (playerX>>2);
-  uint8_t mapX = gridX >> 3;
-  uint8_t mapOffsetX = gridX & 7;
-
-  int16_t gridY = offsetY - (playerY>>2);
-  uint8_t mapY = gridY >> 3;
-  uint8_t mapOffsetY = gridY & 7;
-  
-  for(int8_t y=-1; y < HEIGHT/8; y++) { 
-    for(int8_t x=-1; x < WIDTH/8; x++) {
-      uint8_t locX = x - mapX;
-      uint8_t locY = y - mapY;
-      uint8_t tile  = (locX==0) ? 10                  // west edge
-                    : (locX<4)  ? 1                   // 
-                    : (locX==4) ? ((locY%4) < 2 ? 1 : 15)
-                    : (locX==7) ? 14
-                    : (locX==8) ? 15
-                    : (locX<11)  ? 1
-                    : (locX==11) ? ((locY%4) <2  ? 1 : 14)
-                    : (locX<15)  ? 1
-                    : (locX==15) ? 11
-                    : (locY==0)  ? 12
-                    : (locY==3)  ? ((locX%2) ? 1 : 16)
-                    : (locY<5)   ? 1
-                    : (locY==5)  ? 13
-                    : 0;
-      
-//      int16_t xloc = x - gridX;
-//      int16_t yloc = y - gridY;
-//      uint8_t tile  = (xloc > -24) && (xloc <=  24) ? 1  // black-top
-//                    : (yloc > -24) && (yloc <=  24) ? 1  // black-top
-//                    : (xloc > -32) && (xloc <= -24) ? 10 //
-//                    : (xloc >  24) && (xloc <=  32) ? 11 //
-//                    : (yloc > -32) && (yloc <= -24) ? 12 //
-//                    : (yloc >  24) && (yloc <=  32) ? 13 //
-//                    : 0; // offroad
-      sprites.drawOverwrite(x*8+mapOffsetX,y*8+mapOffsetY,tilesRoad,tile);      
-    }
-  }
-
-//  arduboy.setCursor(WIDTH-16,HEIGHT-16);
-//  arduboy.println(gridX);
-//  arduboy.setCursor(WIDTH-16,HEIGHT-8);
-//  arduboy.println(mapX);
-  
-
-}
-void drawGridPoints(uint8_t color) {
-  uint8_t gridX = (offsetX - (playerX >> 2)) & 0x3f;
-  uint8_t gridY = (offsetY - (playerY >> 2)) & 0x1f;
-  
-  for(uint8_t y=gridY; y < HEIGHT; y+=32) { 
-    for(uint8_t x=gridX; x < WIDTH; x+=64) {
-      arduboy.drawPixel(x,y,color); 
-      arduboy.drawPixel(x+1,y,color); 
-    }
-  }
-}
-
-
-void drawStars(uint16_t seed, uint8_t layer) {
-  uint16_t background = -((playerY >> layer) << 7) - (playerX >> layer);
-  for(uint16_t i=0; i < WIDTH*HEIGHT; i+=seed) {
-    background += seed;
-    arduboy.drawPixel (background & 0x7f, (background >> 7) & 0x3f, WHITE);
   }
 }
 
