@@ -97,11 +97,11 @@ int8_t World::calcBlock(int16_t x, int16_t y) {
  * Coordinates uses lower 3 bits for offset and the rest for which block. 
  */
 void World::drawMini(int32_t playerX, int32_t playerY) {
-  uint8_t offsetX = playerX & 0x7;
-  uint8_t offsetY = playerY & 0x7;
   int16_t tileX = playerX - (miniRight-miniLeft)/2;
   int16_t tileY = playerY - (miniBottom-miniTop)/2;
-
+  uint8_t offsetX = tileX & 0x7;
+  uint8_t offsetY = tileY & 0x7;
+  
   uint8_t ty = offsetY;
   for (uint8_t y=miniTop; y < miniBottom; y += (y == miniTop) ? 8-offsetY : 8) {
     
@@ -178,6 +178,13 @@ void World::draw(int32_t playerX, int32_t playerY) {
 uint8_t World::getSegments(int8_t block) {
   if (block >=0) return pgm_read_byte(blockSegments + block);
   return 0x0;
+}
+
+uint8_t World::segmentsAt(int32_t playerX, int32_t playerY) {
+  int16_t blockX = playerX >> 9;
+  int16_t blockY = playerY >> 9;
+  int8_t  block = calcBlock(blockX,blockY);
+  return(getSegments(block));
 }
 
 int8_t World::tileAt(int32_t playerX, int32_t playerY) {

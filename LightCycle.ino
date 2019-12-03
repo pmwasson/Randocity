@@ -4,12 +4,14 @@
 #include "FatFont.h"
 #include "World.h"
 #include "SavedSprites.h"
+#include "Timer.h"
 
 Arduboy2 arduboy;
 Sprites  sprites;
 ArduboyTones sound(arduboy.audio.enabled);
 FatFont font;
 World world;
+Timer gameTimer;
 
 // Player coordinates (19 bits each)
 // Bits Range   Unit      Usage
@@ -44,7 +46,7 @@ uint8_t offsetY = targetMidV;
 uint8_t targetX = offsetX;
 uint8_t targetY = offsetY;
 
-enum Mode : uint8_t {title, main, menu, viewMap, help, enterSeed, displayMessage};
+enum Mode : uint8_t {title, freeRoam, edgeRace, crazyCourier, menu, viewMap, help, enterSeed, displayMessage};
 Mode mode = title;
 
 int8_t menuItem = 0;
@@ -54,6 +56,7 @@ uint32_t seedRandom;
 uint8_t helpPage;
 static const int8_t helpPageMax = 5;
 
+uint16_t playerScore = 0;
 int32_t courierX = (((int32_t)world.mapWidth/2l)<<11) - (8l<<2);
 int32_t courierY = (((int32_t)world.mapHeight/2l)<<11) + (32l<<5) - (8l<<2);
 
@@ -63,12 +66,61 @@ void setup() {
   Serial.begin(9600);
 
   generateWorld();
+  setMiniTitle();
+  setPlayerCenter();
+}
+
+void setMiniTitle() {
+  // Set up mini-map for title screen
+  world.miniLeft   = 0;
+  world.miniRight  = WIDTH;
+  world.miniTop    = HEIGHT-24;
+  world.miniBottom = HEIGHT;
+}
+
+void setMapView() {
+  // Set up mini-map for map screen
+  world.miniLeft   = 0;
+  world.miniRight  = WIDTH;
+  world.miniTop    = 8;
+  world.miniBottom = HEIGHT-8;
+}
+
+void setMapGame() {
+  // Set up mini-map for game screen
+  world.miniLeft   = world.mainRight;
+  world.miniRight  = WIDTH;
+  world.miniTop    = 0;
+  world.miniBottom = HEIGHT;
+}
+
+void setMapTimer() {
+  // Set up mini-map for game screen with timer
+  world.miniLeft   = world.mainRight;
+  world.miniRight  = WIDTH;
+  world.miniTop    = 0;
+  world.miniBottom = HEIGHT-8;
+}
+
+void setMapScore() {
+  // Set up mini-map for game screen with timer & score
+  world.miniLeft   = world.mainRight;
+  world.miniRight  = WIDTH;
+  world.miniTop    = 8;
+  world.miniBottom = HEIGHT-8;
+}
+
+void setPlayerCenter() {
+  playerX =  ((int32_t)world.mapWidth/2l)<<11;
+  playerY =  (((int32_t)world.mapHeight/2l)<<11) - (32l<<5);
 }
 
 void loop() {
   switch(mode) {
-    case main: 
-      mainLoop();
+    case freeRoam: 
+    case edgeRace: 
+    case crazyCourier: 
+      gameLoop();
       return;
     case menu:
       menuLoop();
@@ -94,6 +146,7 @@ void generateWorld() {
 
 void initPlayer() {
   playerDirection = north;
+  playerSpeed = 0;
   playerX = ((int32_t)world.mapWidth/2l)<<11;
   playerY = (((int32_t)world.mapHeight/2l)<<11) - (32l<<5);
 }
@@ -107,15 +160,41 @@ void printSeed(uint32_t seed) {
   font.print(seed,HEX);
 }
 
-void titleLoop() {
+void printTimer() {
+  if (!gameTimer.isDone() || ((arduboy.frameCount % 32) < 16)) {
+    if (gameTimer.timerMinutes < 10) {
+      font.print(F("0"));
+    }
+    font.print(gameTimer.timerMinutes);
+    font.print(F(":"));
+    if (gameTimer.timerSeconds < 10) {
+      font.print(F("0"));
+    }
+    font.print(gameTimer.timerSeconds);
+  }
+  else {
+    font.print(F("  :  "));
+  }
+}
+
+void printScore() {
+  uint16_t scoreCopy = playerScore|1;
+  while(scoreCopy < 1000) {
+    font.print(F("0"));
+    scoreCopy *= 10;
+  }
+  font.print(playerScore);
+  font.print("0");
+}
+
+void infoLoop() {
   if (!(arduboy.nextFrame())) return;
   arduboy.pollButtons();
 
   backGround(0x0101);
 
   font.setCursor(0,3);
-  font.println(F("  LINEAR FEEDBACK  "));
-  font.println(F("       CITY        "));
+  font.println(F("    RANDO CITY     "));
   font.println();
   font.println(F("  BY PAUL WASSON   ")); 
   font.println(F("  DECEMBER, 2019   "));
@@ -124,7 +203,32 @@ void titleLoop() {
 
   arduboy.display();
 
-  if (arduboy.justPressed(A_BUTTON)) {
+  if (arduboy.justPressed(A_BUTTON) || arduboy.justPressed(B_BUTTON)) {
+    mode = menu;
+  }
+}
+
+
+void titleLoop() {
+  if (!(arduboy.nextFrame())) return;
+  arduboy.pollButtons();
+
+  backGround(0x0000);
+
+  world.drawMini(playerX>>8,playerY>>8);
+  playerX+=112;
+  playerY+=112;
+  if ((playerX > (240l << 11)) || (playerY > (240l << 11))) {
+    playerX = playerY = (16l << 11); 
+  }
+  
+  sprites.drawErase(0, HEIGHT-24, title_mask, 0);
+  sprites.drawSelfMasked(0, 0, title_image, 0);
+
+  arduboy.display();
+
+  if (arduboy.justPressed(A_BUTTON) || arduboy.justPressed(B_BUTTON)) {
+    setPlayerCenter();
     mode = menu;
   }
 }
@@ -136,7 +240,7 @@ void menuLoop() {
   backGround(0);
 
   font.setCursor(0,0);
-  font.print(F("MENU:\n  FREE ROAM\n  RACE TO THE EDGE\n  CRAZY CURIER\n  VIEW MAP\n  HELP\n\nPRESS _ TO SELECT"));
+  font.print(F("MENU:\n  FREE ROAM\n  RACE TO THE EDGE\n  CRAZY COURIER\n  VIEW MAP\n  HELP\n\nPRESS _ TO SELECT"));
   font.setCursor(0,(menuItem+1)*8);
   font.print(F("]"));
   arduboy.display();
@@ -155,22 +259,27 @@ void menuLoop() {
   if (arduboy.justPressed(B_BUTTON)) {
     switch(menuItem) {
       case 0:
+        mode = freeRoam;
+        setMapGame();
+        break;
       case 1:
+        mode = edgeRace;
+        initPlayer();
+        setMapTimer();
+        gameTimer.startCountUp();
+        break;
       case 2:
-        arduboy.clear();
-        font.setCursor(0,24);
-        font.print(F("  PRESS \\ AND @\n  FOR MENU"));
-        arduboy.display();
-        delay(3000);
-        mode = main;
+        mode = crazyCourier;
+        initPlayer();
+        setMapScore();
+        randomizeCourier();
+        playerScore = 0;
+        gameTimer.startCountDown(2,0);
         break;
       case 3:
+        setMapView();
         savePlayerX = playerX;
         savePlayerY = playerY;
-        world.miniLeft   = 0;
-        world.miniRight  = WIDTH;
-        world.miniTop    = 8;
-        world.miniBottom = HEIGHT-8;
         mode = viewMap;
         break;
       default:
@@ -224,10 +333,6 @@ void mapLoop() {
   if (arduboy.justPressed(A_BUTTON)) {
       playerX = savePlayerX;
       playerY = savePlayerY;
-      world.miniLeft   = world.mainRight;
-      world.miniRight  = WIDTH;
-      world.miniTop    = world.mainTop;
-      world.miniBottom = world.mainBottom;
       mode = menu;
   }
 }
@@ -343,7 +448,7 @@ void helpLoop() {
   arduboy.display();
 }
 
-void mainLoop() {
+void gameLoop() {
   if (!(arduboy.nextFrame())) return;
   arduboy.pollButtons();
 
@@ -463,48 +568,112 @@ void mainLoop() {
   // Draw world
   world.draw((playerX>>2)-offsetX,(playerY>>2)-offsetY);
 
-  // Draw objects
-  int16_t courierScreenX = ((courierX-playerX)>>2)+offsetX;
-  int16_t courierScreenY = ((courierY-playerY)>>2)+offsetY;
-  if ((courierScreenX >= world.mainLeft-16) && (courierScreenX < world.mainRight) &&
-      (courierScreenY >= world.mainTop-16) && (courierScreenY < world.mainBottom)) {
-    sprites.drawPlusMask(courierScreenX,courierScreenY,tilesCycle,13);
+  if (mode == crazyCourier) {
+    // Draw objects
+    int16_t courierScreenX = ((courierX-playerX)>>2)+offsetX;
+    int16_t courierScreenY = ((courierY-playerY)>>2)+offsetY;
+    if ((courierScreenX >= world.mainLeft-16) && (courierScreenX < world.mainRight) &&
+        (courierScreenY >= world.mainTop-16) && (courierScreenY < world.mainBottom)) {
+      sprites.drawPlusMask(courierScreenX,courierScreenY,tilesCycle,13);
+    }
   }
-
+  
   // Draw player
   sprites.drawPlusMask(offsetX,offsetY,tilesCycle,playerFrame);
 
   // Draw map
   world.drawMini(playerX>>8,playerY>>8);
 
-
-  int32_t courierMiniScreenX = (world.miniRight+world.miniLeft-8)/2 + ((courierX - playerX)>>8);
-  int32_t courierMiniScreenY = (world.miniBottom+world.miniTop-8)/2 + ((courierY - playerY)>>8);
-  courierMiniScreenX = min(max(world.miniLeft,courierMiniScreenX),world.miniRight-8);
-  courierMiniScreenY = min(max(world.miniTop,courierMiniScreenY),world.miniBottom-8);
-  
-  if (arduboy.frameCount % 32 < 16) {
-      sprites.drawPlusMask(courierMiniScreenX,courierMiniScreenY,tilesBullseye,1);
+  if (mode == crazyCourier) {
+    int32_t courierMiniScreenX = (world.miniRight+world.miniLeft-8)/2 + ((courierX - playerX + 128)>>8);
+    int32_t courierMiniScreenY = (world.miniBottom+world.miniTop-8)/2 + ((courierY - playerY + 128)>>8);
+    courierMiniScreenX = min(max(world.miniLeft,courierMiniScreenX),world.miniRight-8);
+    courierMiniScreenY = min(max(world.miniTop,courierMiniScreenY),world.miniBottom-8);
+    
+    if (arduboy.frameCount % 32 < 16) {
+        sprites.drawPlusMask(courierMiniScreenX,courierMiniScreenY,tilesBullseye,1);
+    }
   }
   
   if (arduboy.frameCount % 16 < 8) {
     sprites.drawPlusMask(
-      (world.miniRight+world.miniLeft-8)/2,
-      (world.miniBottom+world.miniTop-8)/2,
+      (world.miniRight+world.miniLeft)/2-4,
+      (world.miniBottom+world.miniTop)/2-4,
       tilesBullseye,0);
   }
   
   arduboy.drawRect(world.miniLeft,world.miniTop,world.miniRight-world.miniLeft,world.miniBottom-world.miniTop);
 
+  // Timer
+  if (mode != freeRoam) {
+    if (arduboy.everyXFrames(30)) gameTimer.tick();
+    arduboy.fillRect(world.miniLeft,world.miniBottom,world.miniRight-world.miniLeft,HEIGHT-world.miniBottom,BLACK);
+    arduboy.drawRect(world.miniLeft,world.miniBottom-1,world.miniRight-world.miniLeft,HEIGHT-world.miniBottom+1);
+    font.setCursor(world.miniLeft+8,HEIGHT-7);
+    printTimer();
 
-//  arduboy.setCursor(0,HEIGHT-8);
-//  arduboy.print(courierMiniScreenX);
+    if (isPlayerOutside()) gameTimer.setDone(); 
+  }
+
+  // Score
+  if (mode == crazyCourier) {
+    arduboy.fillRect(world.miniLeft,0,world.miniRight-world.miniLeft,world.miniTop,BLACK);
+    arduboy.drawRect(world.miniLeft,0,world.miniRight-world.miniLeft,world.miniTop+1);
+    font.setCursor(world.miniLeft+8,0);
+    printScore();
+
+    if (isPlayerOnTarget()) {
+      playerScore += min(gameTimer.timerMinutes*10 + gameTimer.timerSeconds/10,9999);
+      gameTimer.startCountDown(2,0);
+      randomizeCourier();
+      soundGood();
+    }
+  }
+  
+//  arduboy.setCursor(0,0);
+//  arduboy.print(playerX>>11);
 //  arduboy.print(",");
-//  arduboy.print(courierMiniScreenY);
+//  arduboy.print(playerY>>11);
+//  arduboy.print(":");
+//  arduboy.print(world.segmentsAt(playerX>>2,playerY>>2),HEX);
+//
+//  arduboy.setCursor(0,HEIGHT-8);
+//  arduboy.print(courierX>>11);
+//  arduboy.print(",");
+//  arduboy.print(courierY>>11);
+//  arduboy.print(":");
+//  arduboy.print(world.segmentsAt(courierX>>2,courierY>>2),HEX);
+  
 //  arduboy.println(arduboy.cpuLoad());
   
   soundMotor();
   arduboy.display();
+}
+
+bool isPlayerOutside() {
+  return (((playerX >> 11) < 0)   ||
+          ((playerX >> 11) > 255) ||
+          ((playerY >> 11) < 0)   ||
+          ((playerY >> 11) > 255) );
+}
+
+bool isPlayerOnTarget() {
+  return (( ((playerX+16) >> 5) == ((courierX+16) >> 5) ) &&
+          ( ((playerY+16) >> 5) == ((courierY+16) >> 5) ));
+}
+
+void randomizeCourier() {
+  courierX = ((playerX >> 11) + random(-5,5)) << 11; 
+  courierY = ((playerY >> 11) + random(-5,5)) << 11;
+  // pick a safe direction
+  if ((world.segmentsAt(courierX>>2,courierY>>2)&0b10010001) != 0) {
+    // North 
+    courierX += (32l<<5);
+  }
+  else {
+    // West
+    courierY += (32l<<5);
+  }
 }
 
 void backGround(uint16_t color) {
@@ -533,4 +702,12 @@ void soundBreak() {
 
 void soundAccel() {  
   sound.tone(NOTE_C1,40);
+}
+
+void soundGood() {
+  sound.tone(NOTE_C4H,50,NOTE_D4H,50,NOTE_F4H,75);
+}
+
+void soundBad() {
+  sound.tone(NOTE_C5H,100,NOTE_D4H,100);
 }

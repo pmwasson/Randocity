@@ -26,6 +26,7 @@ class World {
     void init(uint32_t seed);    
     void draw(int32_t x, int32_t y);
     void drawMini(int32_t x, int32_t y);
+    uint8_t segmentsAt(int32_t playerX, int32_t playerY);
     int8_t tileAt(int32_t playerX, int32_t playerY);
 
   private:
