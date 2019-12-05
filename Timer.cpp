@@ -32,7 +32,7 @@ void Timer::tick() {
     if (timerSeconds >= 60) {
       timerSeconds = 0;
       timerMinutes++;
-      if (timerMinutes = 99) {
+      if (timerMinutes == 99) {
         timerMode = timerDone;
       }
     }

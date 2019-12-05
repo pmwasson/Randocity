@@ -11,7 +11,9 @@ Sprites  sprites;
 ArduboyTones sound(arduboy.audio.enabled);
 FatFont font;
 World world;
+
 Timer gameTimer;
+Timer startTimer;
 
 // Player coordinates (19 bits each)
 // Bits Range   Unit      Usage
@@ -267,6 +269,7 @@ void menuLoop() {
         initPlayer();
         setMapTimer();
         gameTimer.startCountUp();
+        startTimer.startCountDown(0,5);
         break;
       case 2:
         mode = crazyCourier;
@@ -275,6 +278,7 @@ void menuLoop() {
         randomizeCourier();
         playerScore = 0;
         gameTimer.startCountDown(2,0);
+        startTimer.startCountDown(0,5);
         break;
       case 3:
         setMapView();
@@ -463,32 +467,35 @@ void gameLoop() {
   if (playerTile == tilesRoadGravel) {
     playerSpeed = max(playerSpeed-1,0);  
   }
+
+  if (startTimer.isDone()) {
+    
+    if (arduboy.justPressed(A_BUTTON)) {
+      playerSpeed = max(playerSpeed-2,0);  
+      if (playerSpeed > 0)
+        soundBreak();
+      if (arduboy.pressed(DOWN_BUTTON)) {
+        mode = menu;
+      }
+    }
   
-  if (arduboy.justPressed(A_BUTTON)) {
-    playerSpeed = max(playerSpeed-2,0);  
-    if (playerSpeed > 0)
-      soundBreak();
-    if (arduboy.pressed(DOWN_BUTTON)) {
-      mode = menu;
+    if (arduboy.justPressed(B_BUTTON)) {
+      playerSpeed = min(playerSpeed+2+(playerTile == tilesRoadGravel),maxSpeed);  
+      if (playerSpeed < maxSpeed)
+        soundAccel();
+    }
+  
+    if (arduboy.justPressed(RIGHT_BUTTON)) {
+      playerDirection = (Direction) ((playerDirection == northwest) ? north : playerDirection + 1);  
+      soundTurn();
+    }
+  
+    if (arduboy.justPressed(LEFT_BUTTON)) {
+      playerDirection = (Direction) ((playerDirection == north) ? northwest : playerDirection - 1);  
+      soundTurn();
     }
   }
-
-  if (arduboy.justPressed(B_BUTTON)) {
-    playerSpeed = min(playerSpeed+2+(playerTile == tilesRoadGravel),maxSpeed);  
-    if (playerSpeed < maxSpeed)
-      soundAccel();
-  }
-
-  if (arduboy.justPressed(RIGHT_BUTTON)) {
-    playerDirection = (Direction) ((playerDirection == northwest) ? north : playerDirection + 1);  
-    soundTurn();
-  }
-
-  if (arduboy.justPressed(LEFT_BUTTON)) {
-    playerDirection = (Direction) ((playerDirection == north) ? northwest : playerDirection - 1);  
-    soundTurn();
-  }
-
+  
   uint8_t playerFrame = 0;
   switch(playerDirection) {
     case north: 
@@ -587,11 +594,13 @@ void gameLoop() {
   if (mode == crazyCourier) {
     int32_t courierMiniScreenX = (world.miniRight+world.miniLeft-8)/2 + ((courierX - playerX + 128)>>8);
     int32_t courierMiniScreenY = (world.miniBottom+world.miniTop-8)/2 + ((courierY - playerY + 128)>>8);
+    bool offMap = (courierMiniScreenX < world.miniLeft) || (courierMiniScreenX > world.miniRight-8) ||
+                  (courierMiniScreenY < world.miniTop)  || (courierMiniScreenY > world.miniBottom-8); 
     courierMiniScreenX = min(max(world.miniLeft,courierMiniScreenX),world.miniRight-8);
     courierMiniScreenY = min(max(world.miniTop,courierMiniScreenY),world.miniBottom-8);
     
     if (arduboy.frameCount % 32 < 16) {
-        sprites.drawPlusMask(courierMiniScreenX,courierMiniScreenY,tilesBullseye,1);
+        sprites.drawPlusMask(courierMiniScreenX,courierMiniScreenY,tilesBullseye,1+offMap);
     }
   }
   
@@ -604,9 +613,29 @@ void gameLoop() {
   
   arduboy.drawRect(world.miniLeft,world.miniTop,world.miniRight-world.miniLeft,world.miniBottom-world.miniTop);
 
+  // Start Timer
+  if (!startTimer.isDone()) {
+    if (arduboy.everyXFrames(30)) {
+      startTimer.tick();
+      if ((startTimer.timerSeconds >= 2) && (startTimer.timerSeconds <= 4)) {
+        soundStart1();
+      }
+      else if (startTimer.timerSeconds == 1) {
+        soundStart2();        
+      }
+    }
+    if ((startTimer.timerSeconds >= 2) && (startTimer.timerSeconds <= 4)) {
+      font.setCursor((world.mainLeft + world.mainRight - 8)/2,(world.mainTop + world.mainBottom - 8)/2);
+      font.print(startTimer.timerSeconds-1);
+    }
+    else if (startTimer.timerSeconds == 1) {
+      font.setCursor((world.mainLeft + world.mainRight - 24)/2,(world.mainTop + world.mainBottom - 8)/2);
+      font.print(F("GO!"));
+    }
+  }
   // Timer
   if (mode != freeRoam) {
-    if (arduboy.everyXFrames(30)) gameTimer.tick();
+    if (startTimer.isDone() && arduboy.everyXFrames(30)) gameTimer.tick();
     arduboy.fillRect(world.miniLeft,world.miniBottom,world.miniRight-world.miniLeft,HEIGHT-world.miniBottom,BLACK);
     arduboy.drawRect(world.miniLeft,world.miniBottom-1,world.miniRight-world.miniLeft,HEIGHT-world.miniBottom+1);
     font.setCursor(world.miniLeft+8,HEIGHT-7);
@@ -710,4 +739,12 @@ void soundGood() {
 
 void soundBad() {
   sound.tone(NOTE_C5H,100,NOTE_D4H,100);
+}
+
+void soundStart1() {
+  sound.tone(NOTE_C5H,250);
+}
+
+void soundStart2() {
+  sound.tone(NOTE_F5H,500);
 }

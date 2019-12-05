@@ -14,6 +14,6 @@ class Timer {
     bool isDone()  { return(timerMode == timerDone); }
     
 private:
-    enum TimerMode : uint8_t {timerNone, timerCountDown, timerCountUp, timerDone}; 
-    TimerMode timerMode;
+    enum TimerMode : uint8_t {timerCountDown, timerCountUp, timerDone}; 
+    TimerMode timerMode = timerDone;
 };
