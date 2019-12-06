@@ -8,8 +8,6 @@ void World::init(uint32_t newSeed) {
   lfsr.lfsr = seed;
   lfsrX=0;
   lfsrY=0;
-  Serial.print("SEED = ");
-  Serial.println(seed,HEX);
 }
 
 int8_t World::getBlock(int16_t x, int16_t y) {

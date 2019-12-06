@@ -38,8 +38,8 @@ static const uint8_t  colorFG = WHITE;
 
 Direction playerDirection = north;
 uint8_t frame = 0;
-int32_t playerX = ((int32_t)world.mapWidth/2l)<<11;
-int32_t playerY = (((int32_t)world.mapHeight/2l)<<11) - (32l<<5);
+int32_t playerX;
+int32_t playerY;
 int32_t savePlayerX;
 int32_t savePlayerY;
 int8_t  playerSpeed = 0;
@@ -58,11 +58,11 @@ static const int8_t menuMaxItem = 5;
 uint32_t seedNew;
 uint32_t seedRandom;
 uint8_t helpPage;
-static const int8_t helpPageMax = 5;
+static const int8_t helpPageMax = 6;
 
 uint16_t playerScore = 0;
-int32_t courierX = (((int32_t)world.mapWidth/2l)<<11) - (8l<<2);
-int32_t courierY = (((int32_t)world.mapHeight/2l)<<11) + (32l<<5) - (8l<<2);
+int32_t courierX;
+int32_t courierY;
 
 static const uint16_t eepromStart = 480;
 bool newRecord;
@@ -122,7 +122,17 @@ void setMapScore() {
 
 void setPlayerCenter() {
   playerX =  ((int32_t)world.mapWidth/2l)<<11;
-  playerY =  (((int32_t)world.mapHeight/2l)<<11) - (32l<<5);
+  playerY =  (((int32_t)world.mapHeight/2l)<<11);
+
+  // pick a safe direction
+  if ((world.segmentsAt(playerX>>2,playerY>>2)&0b10010001) != 0) {
+    // North 
+    playerX += (32l<<5);
+  }
+  else {
+    // West
+    playerY += (32l<<5);
+  }
 }
 
 void loop() {
@@ -169,8 +179,7 @@ void generateWorld() {
 void initPlayer() {
   playerDirection = north;
   playerSpeed = 0;
-  playerX = ((int32_t)world.mapWidth/2l)<<11;
-  playerY = (((int32_t)world.mapHeight/2l)<<11) - (32l<<5);
+  setPlayerCenter();
 }
 
 void printSeed(uint32_t seed) {
@@ -300,7 +309,7 @@ void menuLoop() {
     }
     else {
       mode = menuMain;
-      menuItem = 0;
+      menuItem = 1; // new game
       return;
     }
   }
@@ -422,26 +431,35 @@ void seedLoop() {
   font.setCursor(0,0);
   font.print(F("SEED:"));
   printSeed(world.seed);
-  font.print(F("\n\n  RANDOM: "));
+  font.print(F("\n  RANDOM: "));
   printSeed(seedRandom);
+  font.print(F("\n  ER RECORD: "));
+  printSeed(records.edgeRaceSeed);
+  font.print(F("\n  CC RECORD: "));
+  printSeed(records.crazyCourierSeed);
   font.print(F("\n  ENTER:  "));
   printSeed(seedNew);
   font.print(F("\n\n\n@ RETURN, _ SELECT"));
   
-  if (menuItem ==0) {
-    font.setCursor(0,(0+2)*8);
+  if (menuItem < 3) {
+    font.setCursor(0,(1+menuItem)*8);
     font.print(F("]"));
-    if (arduboy.justPressed(UP_BUTTON) || arduboy.justPressed(DOWN_BUTTON)) {
-      menuItem = 1;
+    if (arduboy.justPressed(UP_BUTTON)) {
+      if (menuItem > 0) {
+        menuItem--;
+      }
+    }
+    if (arduboy.justPressed(DOWN_BUTTON)) {
+      menuItem++;
     }
   }
   else {
-    font.setCursor(0,(1+2)*8);
+    font.setCursor(0,4*8);
     font.print(F("]"));    
-    font.setCursor((10+menuItem-1)*7,32);
+    font.setCursor((8+menuItem-1)*7,5*8);
     font.print(F("^"));    
 
-    int8_t digit = 4*(5-menuItem);
+    int8_t digit = 4*(7-menuItem);
     uint32_t mask = (0xfl << digit);
     if (arduboy.justPressed(UP_BUTTON)) {
       seedNew = (seedNew + (1l << digit) & mask) + (seedNew & ~mask);
@@ -454,17 +472,24 @@ void seedLoop() {
     }
     if (arduboy.justPressed(RIGHT_BUTTON)) {
       menuItem++;
-      if (menuItem > 5) menuItem = 5;
+      if (menuItem > 7) menuItem = 7;
     }
   }
 
   if (arduboy.justPressed(B_BUTTON)) {
-    if (menuItem == 0) {
-      world.init(seedRandom);
-      seedRandom = random(world.minSeed,world.maxSeed);
-    }
-    else {
-      world.init(seedNew);      
+    switch(menuItem) {
+      case 0:
+        world.init(seedRandom);
+        seedRandom = random(world.minSeed,world.maxSeed);
+        break;
+      case 1:
+        world.init(records.edgeRaceSeed);
+        break;
+      case 2:
+        world.init(records.crazyCourierSeed);
+        break;
+      default:
+        world.init(seedNew);      
     }
   }
   
@@ -524,7 +549,7 @@ void helpLoop() {
   font.print(helpPageMax);
   arduboy.drawRect(0,8,WIDTH-1,HEIGHT-17);
 
-  font.setCursor(3,11);
+  font.setCursor(3,12);
   switch(helpPage) {
     case(1): 
     font.print(F("MOVEMENT:\n"
@@ -540,17 +565,23 @@ void helpLoop() {
                  "BACK ON."));
     break;
     case(3): 
+    font.print(F("THE SEED SETS THE\n"
+                 "MAP USED. EACH\n"
+                 "SEED MAKES A\n"
+                 "DIFFERENT MAP."));
+    break;
+    case(4): 
     font.print(F("FREE PLAY:\n"
                  "EXPLORE THE CITY\n"
                  "AT YOUR OWN PACE."));
     break;
-    case(4): 
+    case(5): 
     font.print(F("RACE TO THE EDGE:\n"
                  "TRY TO GET OUT OF\n"
                  "THE CITY AS FAST\n"
                  "AS POSSIBLE!"));
     break;
-    case(5): 
+    case(6): 
     font.print(F("CRAZY COURIER:\n"
                  "PICK UP PACKAGES\n"
                  "FAST FOR POINTS\n"
@@ -630,13 +661,15 @@ void gameLoop() {
   if (startTimer.isDone() || (mode == gameFreePlay)) {
     
     if (arduboy.justPressed(A_BUTTON)) {
-      playerSpeed = max(playerSpeed-2,0);  
-      if (playerSpeed > 0)
-        soundBreak();
       if (arduboy.pressed(DOWN_BUTTON)) {
         savedMode = mode;
         menuItem = 0;
         mode = (mode == gameFreePlay) ? menuMain : menuPause;
+      }
+      else {
+        playerSpeed = max(playerSpeed-2,0);  
+        if (playerSpeed > 0)
+          soundBreak();
       }
     }
   
@@ -789,11 +822,11 @@ void gameLoop() {
       font.setCursor(world.mainLeft,world.mainTop);
       font.print(F("\\+@ FOR MENU"));
     }
-    if ((startTimer.timerSeconds >= 1) && (startTimer.timerSeconds <= 3)) {
+    if ((mode != gameFreePlay) && (startTimer.timerSeconds >= 1) && (startTimer.timerSeconds <= 3)) {
       font.setCursor((world.mainLeft + world.mainRight - 8)/2,(world.mainTop + world.mainBottom - 8)/2);
       font.print(startTimer.timerSeconds);
     }
-    else if (startTimer.timerSeconds == 0) {
+    else if ((mode != gameFreePlay) && (startTimer.timerSeconds == 0)) {
       font.setCursor((world.mainLeft + world.mainRight - 24)/2,(world.mainTop + world.mainBottom - 8)/2);
       font.print(F("GO!"));
     }
@@ -825,11 +858,11 @@ void gameLoop() {
   }
 
   // Game Over
-  if ((mode != gameFreePlay) && gameTimer.isDone()) {
+  if (((mode == gameCrazyCourier) || (mode == gameEdgeRace)) && gameTimer.isDone()) {
     savedMode = mode;
     mode = gameOver;
 
-    if (mode == gameEdgeRace) {
+    if (savedMode == gameEdgeRace) {      
       newRecord = records.setER(world.seed,gameTimer.timerMinutes,gameTimer.timerSeconds);
       if (newRecord) {
         EEPROM.put(eepromStart,records);
@@ -871,10 +904,6 @@ void randomizeCourier() {
     // West
     courierY += (32l<<5);
   }
-  Serial.print(F("Courier: "));
-  Serial.print(courierX,HEX);
-  Serial.print(F(","));
-  Serial.println(courierY,HEX);
 }
 
 void backGround(uint16_t color) {
