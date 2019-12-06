@@ -1,3 +1,5 @@
+# Compute code to shift LFSR by arbitrary amounts
+
 def simplify(list):
     list.sort()
     last = -1
@@ -22,15 +24,11 @@ def lfsr_forward(lfsr,degree,poly):
     return lfsr
 
 def main():
-    #poly = 0xb400
-    #degree = 16
-    #poly = 0x10004
-    #degree = 17    
     poly = 0x80004
     degree = 20    
     #count = 1
-    count = (0x100000-2)
-    #count = 1024
+    #count = (0x100000-2)
+    count = 1024
     #count = (0x100000-1)-1024
 
     lfsr = [[i] for i in range(degree)]
